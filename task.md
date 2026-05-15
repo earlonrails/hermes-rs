@@ -48,3 +48,37 @@
 - `[x]` TUI Gateway (`hermes-tui-gateway`)
     - `[x]` Create `hermes-tui-gateway` crate
     - `[x]` Implement JSON-RPC server over stdio
+
+# Phase 6: Provider Parity
+- `[ ]` Implement robust LLM provider traits
+- `[ ]` Port OpenAI, Anthropic, Gemini, OpenRouter, Mistral, xAI providers
+- `[ ]` Handle provider-specific streaming and tool-calling formats
+
+# Phase 7: Environments & Sandboxing
+- `[ ]` Design environment execution traits
+- `[ ]` Implement Docker container backend
+- `[ ]` Implement Modal/Serverless backend
+- `[ ]` Implement SSH and other remote backends
+
+# Phase 8: Model Context Protocol (MCP)
+- `[ ]` Implement MCP Server capabilities (`mcp_serve`)
+- `[ ]` Implement ACP Adapter/Registry
+- `[ ]` Support consuming external MCP tools
+
+# Phase 9: Plugins
+- `[ ]` Design dynamic plugin loader architecture
+- `[ ]` Port core plugins and extensions
+
+# Phase 10: Skills Ecosystem
+- `[ ]` Implement Skill Manager and dynamic skill loading
+- `[ ]` Port Skills Hub and Skills Guard
+- `[ ]` Implement persistent skill storage and retrieval
+
+# Phase 11: Browser Automation & Computer Use
+- `[ ]` Implement Computer Use API (VNC/UI interactions)
+- `[ ]` Integrate Browser Providers (Browserbase, Firecrawl, browser-use)
+
+# Phase 12: Multimedia Tools
+- `[ ]` Port Vision Tools
+- `[ ]` Port Voice & TTS integration
+- `[ ]` Port Video generation capabilities

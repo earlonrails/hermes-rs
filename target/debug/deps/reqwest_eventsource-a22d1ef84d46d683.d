@@ -1,9 +1,0 @@
-/mnt/c/Users/earlk/code/hermes-agent/hermes-rs/target/debug/deps/reqwest_eventsource-a22d1ef84d46d683.d: /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/lib.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/error.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/event_source.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/reqwest_ext.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/retry.rs
-
-/mnt/c/Users/earlk/code/hermes-agent/hermes-rs/target/debug/deps/libreqwest_eventsource-a22d1ef84d46d683.rmeta: /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/lib.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/error.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/event_source.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/reqwest_ext.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/retry.rs
-
-/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/lib.rs:
-/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/error.rs:
-/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/event_source.rs:
-/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/reqwest_ext.rs:
-/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/reqwest-eventsource-0.4.0/src/retry.rs:
