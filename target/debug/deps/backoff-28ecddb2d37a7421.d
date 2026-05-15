@@ -1,0 +1,12 @@
+/mnt/c/Users/earlk/code/hermes-agent/hermes-rs/target/debug/deps/backoff-28ecddb2d37a7421.d: /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/lib.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/backoff.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/clock.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/default.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/error.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/exponential.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/future.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/retry.rs
+
+/mnt/c/Users/earlk/code/hermes-agent/hermes-rs/target/debug/deps/libbackoff-28ecddb2d37a7421.rmeta: /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/lib.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/backoff.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/clock.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/default.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/error.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/exponential.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/future.rs /home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/retry.rs
+
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/lib.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/backoff.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/clock.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/default.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/error.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/exponential.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/future.rs:
+/home/kkrauss/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/backoff-0.4.0/src/retry.rs:

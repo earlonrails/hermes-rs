@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "hermes-core",
+    "hermes-state",
+    "hermes-tools",
+    "hermes-agent",
+    "hermes-cli",
+    "hermes-gateway",
+    "hermes-tui-gateway"
+]
+resolver = "2"
