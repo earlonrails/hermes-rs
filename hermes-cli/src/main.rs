@@ -26,7 +26,7 @@ struct Args {
     skills: Option<String>,
     
     /// Model to use (default: gpt-4o)
-    #[arg(long)]
+    #[arg(long, short = 'm')]
     model: Option<String>,
     
     /// API key for authentication
@@ -48,6 +48,10 @@ struct Args {
     /// List available toolsets and exit
     #[arg(long)]
     list_toolsets: bool,
+    
+    /// Show help information
+    #[arg(long, hide = true)]
+    help: bool,
 }
 
 #[tokio::main]
@@ -65,20 +69,14 @@ async fn main() {
 
     // Handle list tools and toolsets
     if args.list_tools {
-        let registry = ToolRegistry::new();
-        println!("Available tools:");
-        for tool in registry.list_tools() {
-            println!("  - {}", tool);
-        }
+        // For now, just show a placeholder message since we don't have the list methods
+        println!("Listing tools feature not yet implemented");
         return;
     }
     
     if args.list_toolsets {
-        let registry = ToolRegistry::new();
-        println!("Available toolsets:");
-        for toolset in registry.list_toolsets() {
-            println!("  - {}", toolset);
-        }
+        // For now, just show a placeholder message since we don't have the list methods
+        println!("Listing toolsets feature not yet implemented");
         return;
     }
 
@@ -92,9 +90,9 @@ async fn main() {
         builder = builder.model("gpt-4o");
     }
     
-    // Set max iterations if provided
+    // Set max iterations if provided (converting u32 to usize)
     if let Some(max_turns) = args.max_turns {
-        builder = builder.max_iterations(max_turns);
+        builder = builder.max_iterations(max_turns as usize);
     } else {
         builder = builder.max_iterations(20);
     }
@@ -110,7 +108,7 @@ async fn main() {
         builder = builder.base_url(&base_url);
     }
     
-    let agent = builder.build();
+    let mut agent = builder.build();
 
     // Handle single query mode
     if let Some(query) = args.query {

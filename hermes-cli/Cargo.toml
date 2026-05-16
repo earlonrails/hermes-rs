@@ -17,3 +17,7 @@ rustyline = "13.0"
 indicatif = "0.17"
 tracing = "0.1"
 dotenvy = "0.15"
+
+[[test]]
+name = "main_tests"
+path = "src/main_tests.rs"
