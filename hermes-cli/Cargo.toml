@@ -3,6 +3,10 @@ name = "hermes-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "hermes"
+path = "src/main.rs"
+
 [dependencies]
 tokio = { version = "1.34", features = ["full"] }
 hermes-core = { path = "../hermes-core" }
