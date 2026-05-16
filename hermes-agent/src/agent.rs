@@ -1,11 +1,11 @@
 use crate::{AgentConfig, AIAgentBuilder, IterationBudget, Message, ToolCall};
-use hermes_tools::{ToolRegistry, tool_result, tool_error};
+use hermes_tools::{ToolRegistry};
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{debug};
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::{ChatCompletionRequestMessage, CreateChatCompletionRequestArgs, Role, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionRequestAssistantMessage, ChatCompletionMessageToolCall, FunctionCall},
+    types::{CreateChatCompletionRequestArgs, Role, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionRequestAssistantMessage, ChatCompletionMessageToolCall, FunctionCall},
 };
 
 pub struct AIAgent {
@@ -44,7 +44,7 @@ impl AIAgent {
 
         while self.budget.consume() {
             debug!("Starting iteration {} / {}", api_call_count, self.config.max_iterations);
-            
+
             // Map our strongly typed messages to async-openai's format
             let mut api_messages = Vec::new();
             for msg in &messages {
@@ -82,7 +82,6 @@ impl AIAgent {
                             content: content.clone(),
                             tool_calls: mapped_tool_calls,
                             name: None,
-                            function_call: None,
                         }.into());
                     }
                     Message::Tool { content, tool_call_id } => {
@@ -99,10 +98,10 @@ impl AIAgent {
             // For now, we ask the registry for all tools. In future we should filter by enabled_toolsets.
             // But let's just create an empty hashset for now which gets definitions for all.
             // Wait, registry.get_definitions needs a set of tool names. Let's just assume we want all tools.
-            // Actually, we should ask the registry for all available definitions. 
+            // Actually, we should ask the registry for all available definitions.
             // We'll pass an empty list of tools to OpenAI if we have none.
             let tool_schemas = registry.get_definitions(&std::collections::HashSet::new(), true).await;
-            
+
             let mut request_builder = CreateChatCompletionRequestArgs::default();
             request_builder
                 .model(&self.config.model)
@@ -133,7 +132,7 @@ impl AIAgent {
             };
 
             let choice = &response.choices[0].message;
-            
+
             // Convert back to our internal message format
             let mut assistant_msg = Message::Assistant {
                 content: choice.content.clone(),
@@ -159,7 +158,7 @@ impl AIAgent {
                     reasoning_content: None,
                 };
             }
-            
+
             messages.push(assistant_msg);
             api_call_count += 1;
 
@@ -175,7 +174,7 @@ impl AIAgent {
                 let args_str = tc.function.arguments.clone();
                 let tool_id = tc.id.clone();
                 let reg = registry.clone();
-                
+
                 let handle = tokio::spawn(async move {
                     let parsed_args = serde_json::from_str(&args_str).unwrap_or_else(|_| serde_json::json!({}));
                     let result = reg.dispatch(&tool_name, parsed_args).await;
