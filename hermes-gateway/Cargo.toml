@@ -9,5 +9,5 @@ hermes-core = { path = "../hermes-core" }
 hermes-agent = { path = "../hermes-agent" }
 hermes-tools = { path = "../hermes-tools" }
 tracing = "0.1"
-teloxide = { version = "0.12", features = ["macros"] }
+teloxide = { version = "0.12", default-features = false, features = ["macros", "rustls"] }
 dotenvy = "0.15"
