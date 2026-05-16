@@ -16,4 +16,7 @@ target/
 *.swo
 *.iml
 .DS_Store
+.qwen/
+.agents/
+.kiro/
 

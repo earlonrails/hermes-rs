@@ -82,7 +82,6 @@ impl AIAgent {
                             content: content.clone(),
                             tool_calls: mapped_tool_calls,
                             name: None,
-                            function_call: None,
                         }.into());
                     }
                     Message::Tool { content, tool_call_id } => {

@@ -2122,6 +2122,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hermes"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "dotenvy",
+ "hermes-agent",
+ "hermes-core",
+ "hermes-tools",
+ "indicatif",
+ "rustyline",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hermes-agent"
 version = "0.1.0"
 dependencies = [
@@ -2152,21 +2167,6 @@ dependencies = [
  "tokio",
  "tracing",
  "xcap",
-]
-
-[[package]]
-name = "hermes-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dotenvy",
- "hermes-agent",
- "hermes-core",
- "hermes-tools",
- "indicatif",
- "rustyline",
- "tokio",
- "tracing",
 ]
 
 [[package]]
