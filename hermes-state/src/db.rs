@@ -1,5 +1,5 @@
-use rusqlite::{Connection, OptionalExtension, Result};
-use std::path::{Path, PathBuf};
+use rusqlite::{Connection, Result};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use hermes_core::get_hermes_home;
 
@@ -71,7 +71,6 @@ CREATE TABLE IF NOT EXISTS state_meta (
 "#;
 
 pub struct SessionDB {
-    db_path: PathBuf,
     conn: Mutex<Connection>,
 }
 
@@ -90,7 +89,6 @@ impl SessionDB {
         let _ = conn.pragma_update(None, "foreign_keys", "ON");
 
         let db = Self {
-            db_path: path,
             conn: Mutex::new(conn),
         };
 

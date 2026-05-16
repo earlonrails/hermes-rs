@@ -2,7 +2,7 @@ use hermes_agent::AIAgent;
 use hermes_tools::ToolRegistry;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
-use tracing::{error, info};
+use tracing::error;
 
 pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
     let mut rl = match DefaultEditor::new() {

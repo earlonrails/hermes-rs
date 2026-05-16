@@ -1,4 +1,4 @@
-use crate::registry::{Tool, tool_error, tool_result};
+use crate::registry::Tool;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::fs;

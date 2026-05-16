@@ -19,7 +19,7 @@ async fn main() {
     // Load environment variables (.env file)
     let _ = dotenvy::dotenv();
 
-    let args = Args::parse();
+    let _args = Args::parse();
 
     // Setup logging
     let _log_dir = setup_logging(LoggingConfig {
