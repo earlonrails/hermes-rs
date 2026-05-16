@@ -100,7 +100,10 @@ impl SessionDB {
     }
 
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = match self.conn.lock() {
+            Ok(c) => c,
+            Err(_) => return Err(rusqlite::Error::InvalidQuery),
+        };
         conn.execute_batch(SCHEMA_SQL)?;
         Ok(())
     }

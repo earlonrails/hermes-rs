@@ -3,9 +3,16 @@ members = [
     "hermes-core",
     "hermes-state",
     "hermes-tools",
+    "hermes-providers",
     "hermes-agent",
     "hermes-cli",
     "hermes-gateway",
-    "hermes-tui-gateway"
+    "hermes-tui-gateway",
+    "hermes-env",
+    "hermes-mcp",
+    "hermes-plugins",
+    "hermes-skills",
+    "hermes-browser",
+    "hermes-multimedia"
 ]
 resolver = "2"

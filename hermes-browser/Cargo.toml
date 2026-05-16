@@ -1,0 +1,21 @@
+[package]
+name = "hermes-browser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "1.0"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Browser automation
+thirtyfour = "0.33"
+
+# Computer Use
+enigo = "0.1" # Keyboard and mouse control
+xcap = "0.0.12" # Cross-platform screen capture
+base64 = "0.22"
+
+hermes-tools = { path = "../hermes-tools" }
