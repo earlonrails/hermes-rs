@@ -77,14 +77,13 @@ impl AIAgent {
                             }).collect()
                         });
 
-                        let assistant_message = ChatCompletionRequestAssistantMessage::builder()
-                            .role(Role::Assistant)
-                            .content(content.clone())
-                            .tool_calls(mapped_tool_calls)
-                            .name(None)
-                            .build()
-                            .expect("Failed to build ChatCompletionRequestAssistantMessage");
-                        api_messages.push(assistant_message.into());
+                        api_messages.push(ChatCompletionRequestAssistantMessage {
+                            role: Role::Assistant,
+                            content: content.clone(),
+                            tool_calls: mapped_tool_calls,
+                            name: None,
+                            function_call: None,
+                        }.into());
                     }
                     Message::Tool { content, tool_call_id } => {
                         api_messages.push(async_openai::types::ChatCompletionRequestToolMessage {
