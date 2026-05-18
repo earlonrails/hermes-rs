@@ -1,11 +1,9 @@
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::mpsc;
-use tracing::{debug, error, info};
-use std::collections::HashMap;
+use tracing::{error, info};
 
 use crate::types::*;
-use hermes_tools::{ToolRegistry, ToolContext};
+use hermes_tools::ToolRegistry;
 
 pub struct McpServer {
     registry: Arc<ToolRegistry>,
@@ -69,11 +67,13 @@ impl McpServer {
         match req.method.as_str() {
             "tools/list" => {
                 let mut tools_list = Vec::new();
-                for (name, schema) in self.registry.list_schemas() {
+                let tools = self.registry.get_all_tools().await;
+                for tool in tools {
+                    let schema = tool.schema();
                     tools_list.push(serde_json::json!({
-                        "name": name,
-                        "description": schema.description,
-                        "inputSchema": schema.parameters,
+                        "name": tool.name(),
+                        "description": tool.description(),
+                        "inputSchema": schema.get("parameters").cloned().unwrap_or(serde_json::Value::Null),
                     }));
                 }
                 res.result = Some(serde_json::json!({
@@ -83,39 +83,25 @@ impl McpServer {
             "tools/call" => {
                 if let Some(params) = req.params {
                     if let Ok(call_req) = serde_json::from_value::<CallToolRequest>(params) {
-                        let context = ToolContext {
-                            workspace_dir: std::env::current_dir().unwrap_or_default(),
-                            env: HashMap::new(),
+                        let output = self.registry.dispatch(&call_req.name, call_req.arguments).await;
+                        
+                        let is_error = if let Ok(v) = serde_json::from_str::<serde_json::Value>(&output) {
+                            v.get("error").is_some()
+                        } else {
+                            false
                         };
                         
-                        match self.registry.execute(&call_req.name, call_req.arguments, context).await {
-                            Ok(output) => {
-                                let result = CallToolResult {
-                                    content: vec![ToolContent {
-                                        r#type: "text".to_string(),
-                                        text: output,
-                                    }],
-                                    is_error: false,
-                                };
-                                res.result = match serde_json::to_value(result) {
-                                    Ok(v) => Some(v),
-                                    Err(_) => None,
-                                };
-                            }
-                            Err(e) => {
-                                let result = CallToolResult {
-                                    content: vec![ToolContent {
-                                        r#type: "text".to_string(),
-                                        text: e.to_string(),
-                                    }],
-                                    is_error: true,
-                                };
-                                res.result = match serde_json::to_value(result) {
-                                    Ok(v) => Some(v),
-                                    Err(_) => None,
-                                };
-                            }
-                        }
+                        let result = CallToolResult {
+                            content: vec![ToolContent {
+                                r#type: "text".to_string(),
+                                text: output,
+                            }],
+                            is_error,
+                        };
+                        res.result = match serde_json::to_value(result) {
+                            Ok(v) => Some(v),
+                            Err(_) => None,
+                        };
                     } else {
                         res.error = Some(JsonRpcError {
                             code: -32602,

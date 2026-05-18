@@ -17,5 +17,6 @@ thirtyfour = { version = "0.33", default-features = false, features = ["rustls-t
 enigo = "0.1" # Keyboard and mouse control
 xcap = "0.0.12" # Cross-platform screen capture
 base64 = "0.22"
+image = "0.25"
 
 hermes-tools = { path = "../hermes-tools" }

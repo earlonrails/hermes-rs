@@ -86,7 +86,7 @@ impl LLMProvider for OpenRouterProvider {
         &self,
         api_key: Option<&str>,
         _timeout: f64,
-    ) -> Result<Vec<String>, ProviderError> {
+    ) -> std::result::Result<Vec<String>, ProviderError> {
         // OpenRouter has a public models endpoint that doesn't require auth
         let client = reqwest::Client::new();
         let url = "https://openrouter.ai/api/v1/models";
@@ -117,7 +117,8 @@ impl LLMProvider for OpenRouterProvider {
         let data: serde_json::Value = response.json().await
             .map_err(|e| ProviderError::InvalidResponseFormat(e.to_string()))?;
         
-        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&Vec::new());
+        let default_vec = Vec::new();
+        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&default_vec);
         
         Ok(models.iter()
             .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
@@ -127,7 +128,7 @@ impl LLMProvider for OpenRouterProvider {
     async fn create_chat_completion(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionResponse, ProviderError> {
+    ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
         // OpenRouter uses OpenAI-compatible format but with some extensions
         // We can reuse the OpenAI provider's implementation with a different base URL
         
@@ -144,7 +145,7 @@ impl LLMProvider for OpenRouterProvider {
     async fn create_chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionStream, ProviderError> {
+    ) -> std::result::Result<ChatCompletionStream, ProviderError> {
         let openai_provider = super::openai::OpenAIProvider::new_with_profile(
             None,
             Some(self.profile.base_url.clone()),

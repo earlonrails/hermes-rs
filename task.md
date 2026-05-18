@@ -82,3 +82,48 @@
 - `[x]` Port Vision Tools
 - `[x]` Port Voice & TTS integration
 - `[x]` Port Video generation capabilities
+
+# Phase 13: CLI Subcommands Implementation
+- `[x]` Implement unimplemented CLI subcommands:
+    - `[x]` Chat
+    - `[x]` Model
+    - `[x]` Fallback
+    - `[x]` Gateway
+    - `[x]` Lsp
+    - `[x]` Setup
+    - `[x]` Whatsapp
+    - `[x]` Slack
+    - `[x]` Login
+    - `[x]` Logout
+    - `[x]` Auth
+    - `[x]` Status
+    - `[x]` Cron
+    - `[x]` Webhook
+    - `[x]` Kanban
+    - `[x]` Hooks
+    - `[x]` Doctor
+    - `[x]` Dump
+    - `[x]` Debug
+    - `[x]` Backup
+    - `[x]` Checkpoints
+    - `[x]` Import
+    - `[x]` Config
+    - `[x]` Pairing
+    - `[x]` Skills
+    - `[x]` Plugins
+    - `[x]` Curator
+    - `[x]` Memory
+    - `[x]` Tools
+    - `[x]` ComputerUse
+    - `[x]` Mcp
+    - `[x]` Sessions
+    - `[x]` Insights
+    - `[x]` Claw
+    - `[x]` Version
+    - `[x]` Update
+    - `[x]` Uninstall
+    - `[x]` Acp
+    - `[x]` Profile
+    - `[x]` Completion
+    - `[x]` Dashboard
+    - `[x]` Logs

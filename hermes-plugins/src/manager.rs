@@ -1,14 +1,13 @@
 use std::path::Path;
-use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 use wasmtime::*;
-use wasmtime_wasi::{WasiCtx, WasiCtxBuilder};
+use wasmtime_wasi::{WasiCtxBuilder, WasiP1Ctx};
 
 use crate::host::HermesHost;
 
 pub struct PluginState {
-    pub wasi: WasiCtx,
+    pub wasi: WasiP1Ctx,
     pub host: HermesHost,
 }
 
@@ -33,7 +32,7 @@ impl PluginManager {
         let mut linker = Linker::new(&engine);
         
         // Link WASI features
-        wasmtime_wasi::add_to_linker(&mut linker, |state: &mut PluginState| &mut state.wasi)?;
+        wasmtime_wasi::preview1::add_to_linker_async(&mut linker, |state: &mut PluginState| &mut state.wasi)?;
         
         // Link Hermes specific host functions
         linker.func_wrap(
@@ -79,9 +78,10 @@ impl PluginManager {
         let wasi = WasiCtxBuilder::new()
             .inherit_stdio()
             .build();
+        let wasi_p1 = WasiP1Ctx::new(wasi);
 
         let state = PluginState {
-            wasi,
+            wasi: wasi_p1,
             host: HermesHost::new(),
         };
 

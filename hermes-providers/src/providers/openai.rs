@@ -75,6 +75,62 @@ impl OpenAIProvider {
         
         Self { profile, client: Client::with_config(config) }
     }
+    
+    fn map_messages(&self, messages: Vec<ChatMessage>) -> Vec<ChatCompletionRequestMessage> {
+        let mut api_messages = Vec::new();
+        for msg in messages {
+            match msg.role {
+                MessageRole::System => {
+                    let sys_msg = async_openai::types::ChatCompletionRequestSystemMessage {
+                        content: msg.content,
+                        role: async_openai::types::Role::System,
+                        name: msg.name,
+                    };
+                    api_messages.push(ChatCompletionRequestMessage::System(sys_msg));
+                }
+                MessageRole::User => {
+                    let user_msg = async_openai::types::ChatCompletionRequestUserMessage {
+                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
+                        role: async_openai::types::Role::User,
+                        name: msg.name,
+                    };
+                    api_messages.push(ChatCompletionRequestMessage::User(user_msg));
+                }
+                MessageRole::Assistant => {
+                    let tool_calls = msg.tool_calls.map(|tcs| {
+                        tcs.into_iter().map(|tc| {
+                            async_openai::types::ChatCompletionMessageToolCall {
+                                id: tc.id,
+                                r#type: async_openai::types::ChatCompletionToolType::Function,
+                                function: async_openai::types::FunctionCall {
+                                    name: tc.function.name,
+                                    arguments: tc.function.arguments,
+                                },
+                            }
+                        }).collect()
+                    });
+                    
+                    let assistant_msg = async_openai::types::ChatCompletionRequestAssistantMessage {
+                        content: if msg.content.is_empty() { None } else { Some(msg.content) },
+                        role: async_openai::types::Role::Assistant,
+                        name: msg.name,
+                        tool_calls,
+                        function_call: None,
+                    };
+                    api_messages.push(ChatCompletionRequestMessage::Assistant(assistant_msg));
+                }
+                MessageRole::Tool => {
+                    let tool_msg = async_openai::types::ChatCompletionRequestToolMessage {
+                        content: msg.content,
+                        role: async_openai::types::Role::Tool,
+                        tool_call_id: msg.tool_call_id.unwrap_or_default(),
+                    };
+                    api_messages.push(ChatCompletionRequestMessage::Tool(tool_msg));
+                }
+            }
+        }
+        api_messages
+    }
 }
 
 #[async_trait]
@@ -86,8 +142,8 @@ impl LLMProvider for OpenAIProvider {
     async fn fetch_models(
         &self,
         api_key: Option<&str>,
-        timeout: f64,
-    ) -> Result<Vec<String>, ProviderError> {
+        _timeout: f64,
+    ) -> std::result::Result<Vec<String>, ProviderError> {
         let client = if let Some(key) = api_key {
             let config = OpenAIConfig::new().with_api_key(key.to_string());
             Client::with_config(config)
@@ -104,73 +160,28 @@ impl LLMProvider for OpenAIProvider {
     async fn create_chat_completion(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionResponse, ProviderError> {
-        // Convert our request format to async-openai's format
-        let mut api_messages: Vec<ChatCompletionRequestMessage> = Vec::new();
-        
-        for msg in request.messages {
-            match msg.role {
-                MessageRole::System => {
-                    api_messages.push(ChatCompletionRequestMessage::System {
-                        role: async_openai::types::Role::System,
-                        content: msg.content,
-                        name: msg.name,
-                    });
-                }
-                MessageRole::User => {
-                    api_messages.push(ChatCompletionRequestMessage::User {
-                        role: async_openai::types::Role::User,
-                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
-                        name: msg.name,
-                    });
-                }
-                MessageRole::Assistant => {
-                    let tool_calls = msg.tool_calls.map(|tcs| {
-                        tcs.into_iter().map(|tc| {
-                            async_openai::types::ChatCompletionMessageToolCall {
-                                id: tc.id,
-                                r#type: async_openai::types::ChatCompletionToolType::Function,
-                                function: async_openai::types::FunctionCall {
-                                    name: tc.function.name,
-                                    arguments: tc.function.arguments,
-                                },
-                            }
-                        }).collect()
-                    });
-                    
-                    api_messages.push(ChatCompletionRequestMessage::Assistant {
-                        role: async_openai::types::Role::Assistant,
-                        content: msg.content,
-                        tool_calls,
-                        name: msg.name,
-                        function_call: None,
-                    });
-                }
-                MessageRole::Tool => {
-                    api_messages.push(ChatCompletionRequestMessage::Tool {
-                        role: async_openai::types::Role::Tool,
-                        content: msg.content,
-                        tool_call_id: msg.tool_call_id,
-                    });
-                }
-            }
-        }
+    ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
+        let api_messages = self.map_messages(request.messages.clone());
         
         // Convert tools if present
-        let mut api_request = CreateChatCompletionRequestArgs::default()
+        let mut api_request = CreateChatCompletionRequestArgs::default();
+        api_request
             .model(&request.model)
             .messages(api_messages)
-            .temperature(request.temperature.unwrap_or(0.7))
-            .max_tokens(request.max_tokens.map(|t| t as i64));
+            .temperature(request.temperature.unwrap_or(0.7));
+            
+        if let Some(max_tokens) = request.max_tokens {
+            api_request.max_tokens(max_tokens as u16);
+        }
         
         if let Some(top_p) = request.top_p {
-            api_request = api_request.top_p(top_p as f64);
+            api_request.top_p(top_p);
         }
         if let Some(stop) = request.stop {
-            api_request = api_request.stop(stop);
+            api_request.stop(stop);
         }
         if request.stream {
-            api_request = api_request.stream(true);
+            api_request.stream(true);
         }
         
         // Handle tools - convert to async-openai format
@@ -181,25 +192,29 @@ impl LLMProvider for OpenAIProvider {
                     function: async_openai::types::FunctionObject {
                         name: t.function.name,
                         description: t.function.description,
-                        parameters: t.function.parameters,
-                        strict: false,
+                        parameters: Some(t.function.parameters),
                     },
                 }
             }).collect();
-            api_request = api_request.tools(api_tools);
+            api_request.tools(api_tools);
         }
         
         // Handle tool_choice
         if let Some(tool_choice) = request.tool_choice {
             let api_tool_choice = match tool_choice {
-                ToolChoice::None => async_openai::types::ToolChoice::None,
-                ToolChoice::Auto => async_openai::types::ToolChoice::Auto,
-                ToolChoice::Required => async_openai::types::ToolChoice::Required,
-                ToolChoice::Specific(name) => async_openai::types::ToolChoice::Function(
-                    async_openai::types::FunctionCall { name, arguments: "{}".to_string() }
+                ToolChoice::None => async_openai::types::ChatCompletionToolChoiceOption::None,
+                ToolChoice::Auto => async_openai::types::ChatCompletionToolChoiceOption::Auto,
+                ToolChoice::Required => async_openai::types::ChatCompletionToolChoiceOption::Auto,
+                ToolChoice::Specific(name) => async_openai::types::ChatCompletionToolChoiceOption::Named(
+                    async_openai::types::ChatCompletionNamedToolChoice {
+                        r#type: async_openai::types::ChatCompletionToolType::Function,
+                        function: async_openai::types::FunctionName {
+                            name,
+                        }
+                    }
                 ),
             };
-            api_request = api_request.tool_choice(api_tool_choice);
+            api_request.tool_choice(api_tool_choice);
         }
         
         // Add extra body fields
@@ -217,70 +232,57 @@ impl LLMProvider for OpenAIProvider {
         
         // Convert response back to our format
         let choices = response.choices.into_iter().enumerate().map(|(i, choice)| {
-            let message = match choice.message {
-                async_openai::types::ChatCompletionMessage::System(s) => ChatMessage {
-                    role: MessageRole::System,
-                    content: s.content.unwrap_or_default(),
-                    name: s.name,
-                    tool_calls: None,
-                    tool_call_id: None,
-                },
-                async_openai::types::ChatCompletionMessage::User(u) => ChatMessage {
-                    role: MessageRole::User,
-                    content: match u.content {
-                        async_openai::types::ChatCompletionRequestUserMessageContent::Text(t) => t,
-                        _ => String::new(),
+            let role = match choice.message.role {
+                async_openai::types::Role::System => MessageRole::System,
+                async_openai::types::Role::User => MessageRole::User,
+                async_openai::types::Role::Assistant => MessageRole::Assistant,
+                async_openai::types::Role::Tool => MessageRole::Tool,
+                async_openai::types::Role::Function => MessageRole::Tool,
+            };
+            
+            let tool_calls = choice.message.tool_calls.map(|tcs| {
+                tcs.into_iter().map(|tc| ToolCall {
+                    id: tc.id,
+                    r#type: match tc.r#type {
+                        async_openai::types::ChatCompletionToolType::Function => "function".to_string(),
                     },
-                    name: u.name,
-                    tool_calls: None,
-                    tool_call_id: None,
-                },
-                async_openai::types::ChatCompletionMessage::Assistant(a) => {
-                    let tool_calls = a.tool_calls.map(|tcs| {
-                        tcs.into_iter().map(|tc| ToolCall {
-                            id: tc.id,
-                            r#type: tc.r#type.to_string(),
-                            function: ToolFunction {
-                                name: tc.function.name,
-                                arguments: tc.function.arguments,
-                            },
-                        }).collect()
-                    });
-                    
-                    ChatMessage {
-                        role: MessageRole::Assistant,
-                        content: a.content.unwrap_or_default(),
-                        name: a.name,
-                        tool_calls,
-                        tool_call_id: None,
-                    }
-                }
-                async_openai::types::ChatCompletionMessage::Tool(t) => ChatMessage {
-                    role: MessageRole::Tool,
-                    content: t.content,
-                    name: None,
-                    tool_calls: None,
-                    tool_call_id: t.tool_call_id,
-                },
+                    function: ToolFunction {
+                        name: tc.function.name,
+                        arguments: tc.function.arguments,
+                    },
+                }).collect()
+            });
+            
+            let message = ChatMessage {
+                role,
+                content: choice.message.content.unwrap_or_default(),
+                name: None,
+                tool_calls,
+                tool_call_id: None,
             };
             
             Choice {
                 index: i,
                 message,
-                finish_reason: choice.finish_reason,
+                finish_reason: choice.finish_reason.map(|r| {
+                    serde_json::to_value(&r)
+                        .ok()
+                        .and_then(|v| v.as_str().map(String::from))
+                        .unwrap_or_else(|| format!("{:?}", r))
+                }),
             }
         }).collect();
         
         let usage = response.usage.map(|u| Usage {
-            prompt_tokens: u.prompt_tokens,
-            completion_tokens: u.completion_tokens,
-            total_tokens: u.total_tokens,
+            prompt_tokens: u.prompt_tokens as u64,
+            completion_tokens: u.completion_tokens as u64,
+            total_tokens: u.total_tokens as u64,
         });
         
         Ok(ChatCompletionResponse {
             id: response.id,
             model: response.model,
-            created: response.created,
+            created: response.created as u64,
             choices,
             usage,
         })
@@ -289,70 +291,25 @@ impl LLMProvider for OpenAIProvider {
     async fn create_chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionStream, ProviderError> {
-        // Similar to create_chat_completion but returns a stream
-        let mut api_messages: Vec<ChatCompletionRequestMessage> = Vec::new();
+    ) -> std::result::Result<ChatCompletionStream, ProviderError> {
+        let api_messages = self.map_messages(request.messages.clone());
         
-        for msg in request.messages {
-            match msg.role {
-                MessageRole::System => {
-                    api_messages.push(ChatCompletionRequestMessage::System {
-                        role: async_openai::types::Role::System,
-                        content: msg.content,
-                        name: msg.name,
-                    });
-                }
-                MessageRole::User => {
-                    api_messages.push(ChatCompletionRequestMessage::User {
-                        role: async_openai::types::Role::User,
-                        content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(msg.content),
-                        name: msg.name,
-                    });
-                }
-                MessageRole::Assistant => {
-                    let tool_calls = msg.tool_calls.map(|tcs| {
-                        tcs.into_iter().map(|tc| {
-                            async_openai::types::ChatCompletionMessageToolCall {
-                                id: tc.id,
-                                r#type: async_openai::types::ChatCompletionToolType::Function,
-                                function: async_openai::types::FunctionCall {
-                                    name: tc.function.name,
-                                    arguments: tc.function.arguments,
-                                },
-                            }
-                        }).collect()
-                    });
-                    
-                    api_messages.push(ChatCompletionRequestMessage::Assistant {
-                        role: async_openai::types::Role::Assistant,
-                        content: msg.content,
-                        tool_calls,
-                        name: msg.name,
-                        function_call: None,
-                    });
-                }
-                MessageRole::Tool => {
-                    api_messages.push(ChatCompletionRequestMessage::Tool {
-                        role: async_openai::types::Role::Tool,
-                        content: msg.content,
-                        tool_call_id: msg.tool_call_id,
-                    });
-                }
-            }
-        }
-        
-        let mut api_request = CreateChatCompletionRequestArgs::default()
+        let mut api_request = CreateChatCompletionRequestArgs::default();
+        api_request
             .model(&request.model)
             .messages(api_messages)
             .temperature(request.temperature.unwrap_or(0.7))
-            .max_tokens(request.max_tokens.map(|t| t as i64))
             .stream(true);
+            
+        if let Some(max_tokens) = request.max_tokens {
+            api_request.max_tokens(max_tokens as u16);
+        }
         
         if let Some(top_p) = request.top_p {
-            api_request = api_request.top_p(top_p as f64);
+            api_request.top_p(top_p);
         }
         if let Some(stop) = request.stop {
-            api_request = api_request.stop(stop);
+            api_request.stop(stop);
         }
         
         let api_request = api_request.build()
@@ -362,44 +319,34 @@ impl LLMProvider for OpenAIProvider {
             .map_err(|e| ProviderError::StreamingError(e.to_string()))?;
         
         // Convert the async-openai stream to our format
-        let converted_stream = futures::stream::try_map(stream, |chunk| {
+        let converted_stream = stream.map(|chunk| {
             let chunk = chunk.map_err(|e| ProviderError::StreamingError(e.to_string()))?;
             
             let choices = chunk.choices.into_iter().enumerate().map(|(i, choice)| {
-                let delta_content = match &choice.delta {
-                    async_openai::types::ChatCompletionStreamDelta::Content { content, .. } => {
-                        content.clone()
-                    }
-                    _ => String::new(),
-                };
+                let delta_content = choice.delta.content.clone().unwrap_or_default();
                 
-                let role = match &choice.delta {
-                    async_openai::types::ChatCompletionStreamDelta::Role { role, .. } => {
-                        Some(match role {
-                            async_openai::types::Role::System => MessageRole::System,
-                            async_openai::types::Role::User => MessageRole::User,
-                            async_openai::types::Role::Assistant => MessageRole::Assistant,
-                            async_openai::types::Role::Tool => MessageRole::Tool,
-                        })
+                let role = choice.delta.role.as_ref().map(|role| {
+                    match role {
+                        async_openai::types::Role::System => MessageRole::System,
+                        async_openai::types::Role::User => MessageRole::User,
+                        async_openai::types::Role::Assistant => MessageRole::Assistant,
+                        async_openai::types::Role::Tool => MessageRole::Tool,
+                        async_openai::types::Role::Function => MessageRole::Tool,
                     }
-                    _ => None,
-                };
+                });
                 
-                let tool_calls = match &choice.delta {
-                    async_openai::types::ChatCompletionStreamDelta::ToolCall { tool_calls, .. } => {
-                        tool_calls.as_ref().map(|tcs| {
-                            tcs.iter().map(|tc| StreamToolCall {
-                                id: tc.id.clone(),
-                                r#type: Some(tc.r#type.to_string()),
-                                function: tc.function.as_ref().map(|f| StreamToolFunction {
-                                    name: Some(f.name.clone()),
-                                    arguments: f.arguments.clone(),
-                                }),
-                            }).collect()
-                        })
-                    }
-                    _ => None,
-                };
+                let tool_calls = choice.delta.tool_calls.as_ref().map(|tcs| {
+                    tcs.iter().map(|tc| StreamToolCall {
+                        id: tc.id.clone(),
+                        r#type: tc.r#type.as_ref().map(|t| match t {
+                            async_openai::types::ChatCompletionToolType::Function => "function".to_string(),
+                        }),
+                        function: tc.function.as_ref().map(|f| StreamToolFunction {
+                            name: f.name.clone(),
+                            arguments: f.arguments.clone(),
+                        }),
+                    }).collect()
+                });
                 
                 StreamChoice {
                     index: i,
@@ -408,14 +355,19 @@ impl LLMProvider for OpenAIProvider {
                         content: Some(delta_content),
                         tool_calls,
                     },
-                    finish_reason: choice.finish_reason,
+                    finish_reason: choice.finish_reason.map(|r| {
+                        serde_json::to_value(&r)
+                            .ok()
+                            .and_then(|v| v.as_str().map(String::from))
+                            .unwrap_or_else(|| format!("{:?}", r))
+                    }),
                 }
             }).collect();
             
             Ok(StreamChunk {
                 id: chunk.id,
                 model: chunk.model,
-                created: Some(chunk.created),
+                created: Some(chunk.created as u64),
                 choices,
             })
         });

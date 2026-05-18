@@ -1,9 +1,10 @@
 use thirtyfour::prelude::*;
+use thirtyfour::ChromeCapabilities;
 use tracing::{debug, info};
 
 pub struct BrowserAutomation {
     driver: Option<WebDriver>,
-    capabilities: DesiredCapabilities,
+    capabilities: ChromeCapabilities,
 }
 
 impl BrowserAutomation {
@@ -28,7 +29,7 @@ impl BrowserAutomation {
             driver.goto(url).await?;
             Ok(())
         } else {
-            Err(WebDriverError::CustomError("WebDriver not connected".into()))
+            Err(WebDriverError::RequestFailed("WebDriver not connected".into()))
         }
     }
 
@@ -37,7 +38,7 @@ impl BrowserAutomation {
             let body = driver.find(By::Tag("body")).await?;
             body.text().await
         } else {
-            Err(WebDriverError::CustomError("WebDriver not connected".into()))
+            Err(WebDriverError::RequestFailed("WebDriver not connected".into()))
         }
     }
 
@@ -48,7 +49,7 @@ impl BrowserAutomation {
             elem.click().await?;
             Ok(())
         } else {
-            Err(WebDriverError::CustomError("WebDriver not connected".into()))
+            Err(WebDriverError::RequestFailed("WebDriver not connected".into()))
         }
     }
     
@@ -59,7 +60,7 @@ impl BrowserAutomation {
             elem.send_keys(text).await?;
             Ok(())
         } else {
-            Err(WebDriverError::CustomError("WebDriver not connected".into()))
+            Err(WebDriverError::RequestFailed("WebDriver not connected".into()))
         }
     }
 

@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use hermes_tools::{Tool, ToolSchema, ToolError, ToolContext};
+use hermes_tools::Tool;
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout, Command};
+use tokio::process::{ChildStdin, ChildStdout, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::types::*;
 
@@ -152,32 +152,37 @@ impl McpClient {
 /// A wrapper that adapts an external MCP tool into our internal Tool trait
 pub struct ExternalMcpTool {
     pub client: Arc<McpClient>,
-    pub schema: ToolSchema,
+    pub name: &'static str,
+    pub toolset: &'static str,
+    pub schema_val: Value,
 }
 
 #[async_trait]
 impl Tool for ExternalMcpTool {
-    fn schema(&self) -> ToolSchema {
-        self.schema.clone()
+    fn name(&self) -> &'static str {
+        self.name
     }
 
-    async fn execute(&self, args: Value, _context: ToolContext) -> Result<String, ToolError> {
-        let res = self.client.call_tool(&self.schema.name, args).await
-            .map_err(|e| ToolError::ExecutionFailed(e))?;
-            
-        if res.is_error {
-            let err_text = res.content.iter()
-                .map(|c| c.text.as_str())
-                .collect::<Vec<_>>()
-                .join("\n");
-            return Err(ToolError::ExecutionFailed(err_text));
-        }
+    fn toolset(&self) -> &'static str {
+        self.toolset
+    }
+
+    fn schema(&self) -> Value {
+        self.schema_val.clone()
+    }
+
+    async fn handle(&self, args: Value) -> Result<Value, String> {
+        let res = self.client.call_tool(self.name, args).await?;
         
-        let success_text = res.content.iter()
+        let text = res.content.iter()
             .map(|c| c.text.as_str())
             .collect::<Vec<_>>()
             .join("\n");
             
-        Ok(success_text)
+        if res.is_error {
+            Err(text)
+        } else {
+            Ok(Value::String(text))
+        }
     }
 }

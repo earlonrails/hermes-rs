@@ -20,3 +20,4 @@ target/
 .agents/
 .kiro/
 
+hermes-agent-python/

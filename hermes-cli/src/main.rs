@@ -1,4 +1,5 @@
 mod interactive;
+mod commands;
 
 use clap::Parser;
 use clap::Subcommand;
@@ -234,7 +235,13 @@ async fn main() {
     if let Some(model) = &args.model {
         builder = builder.model(model);
     } else {
-        builder = builder.model("gpt-4o");
+        // Load default model from config
+        let cfg = hermes_core::config::load_config();
+        if !cfg.model.default.is_empty() {
+            builder = builder.model(&cfg.model.default);
+        } else {
+            builder = builder.model("gpt-4o");
+        }
     }
     
     // Set max iterations if provided globally
@@ -285,22 +292,145 @@ async fn main() {
             }
         }
         Some(Commands::ListTools) => {
-            // For now, just show a placeholder message since we don't have the list methods
             println!("Listing tools feature not yet implemented");
         }
         Some(Commands::ListToolsets) => {
-            // For now, just show a placeholder message since we don't have the list methods
             println!("Listing toolsets feature not yet implemented");
         }
         Some(Commands::ConfigShow) => {
-            println!("Configuration display not yet implemented");
+            commands::config::run_config_show();
         }
         Some(Commands::Help) => {
             println!("Help not yet implemented");
         }
-        // Handle other commands as placeholders for now
-        Some(_) => {
-            println!("Command not yet implemented in Rust version");
+        Some(Commands::Chat) => {
+            // Start interactive chat session
+            let agent = builder.build();
+            let registry = ToolRegistry::new();
+            interactive::run_interactive_loop(agent, &registry).await;
+        }
+        Some(Commands::Model) => {
+            commands::model::run_model();
+        }
+        Some(Commands::Fallback) => {
+            commands::fallback::run_fallback();
+        }
+        Some(Commands::Gateway) => {
+            commands::gateway::run_gateway();
+        }
+        Some(Commands::Lsp) => {
+            commands::lsp::run_lsp();
+        }
+        Some(Commands::Setup) => {
+            commands::setup::run_setup();
+        }
+        Some(Commands::Whatsapp) => {
+            commands::whatsapp::run_whatsapp();
+        }
+        Some(Commands::Slack) => {
+            commands::slack::run_slack();
+        }
+        Some(Commands::Login) => {
+            commands::login::run_login();
+        }
+        Some(Commands::Logout) => {
+            commands::login::run_logout();
+        }
+        Some(Commands::Auth) => {
+            commands::auth::run_auth();
+        }
+        Some(Commands::Status) => {
+            commands::status::run_status();
+        }
+        Some(Commands::Cron) => {
+            commands::cron::run_cron();
+        }
+        Some(Commands::Webhook) => {
+            commands::webhook::run_webhook();
+        }
+        Some(Commands::Kanban) => {
+            commands::kanban::run_kanban();
+        }
+        Some(Commands::Hooks) => {
+            commands::hooks::run_hooks();
+        }
+        Some(Commands::Doctor) => {
+            commands::doctor::run_doctor();
+        }
+        Some(Commands::Dump) => {
+            commands::dump::run_dump();
+        }
+        Some(Commands::Debug) => {
+            commands::debug::run_debug();
+        }
+        Some(Commands::Backup) => {
+            commands::backup::run_backup();
+        }
+        Some(Commands::Checkpoints) => {
+            commands::checkpoints::run_checkpoints();
+        }
+        Some(Commands::Import) => {
+            commands::import::run_import();
+        }
+        Some(Commands::Config) => {
+            commands::config::run_config_edit();
+        }
+        Some(Commands::Pairing) => {
+            commands::pairing::run_pairing();
+        }
+        Some(Commands::Skills) => {
+            commands::skills::run_skills();
+        }
+        Some(Commands::Plugins) => {
+            commands::plugins::run_plugins();
+        }
+        Some(Commands::Curator) => {
+            commands::curator::run_curator();
+        }
+        Some(Commands::Memory) => {
+            commands::memory::run_memory();
+        }
+        Some(Commands::Tools) => {
+            commands::tools::run_tools();
+        }
+        Some(Commands::ComputerUse) => {
+            commands::computer_use::run_computer_use();
+        }
+        Some(Commands::Mcp) => {
+            commands::mcp::run_mcp();
+        }
+        Some(Commands::Sessions) => {
+            commands::sessions::run_sessions();
+        }
+        Some(Commands::Insights) => {
+            commands::insights::run_insights();
+        }
+        Some(Commands::Claw) => {
+            commands::claw::run_claw();
+        }
+        Some(Commands::Version) => {
+            commands::version::run_version();
+        }
+        Some(Commands::Update) => {
+            commands::update::run_update();
+        }
+        Some(Commands::Uninstall) => {
+            commands::uninstall::run_uninstall();
+        }
+        Some(Commands::Acp) => {
+            commands::acp::run_acp();
+        }
+        Some(Commands::Profile) => {
+            commands::profile::run_profile();
+        }
+        Some(Commands::Completion) => {
+            commands::completion::run_completion();
+        }
+        Some(Commands::Dashboard) => {
+            commands::dashboard::run_dashboard();
+        }
+        Some(Commands::Logs) => {
+            commands::logs::run_logs();
         }
         None => {
             // Run interactive mode
@@ -319,10 +449,8 @@ async fn main() {
                     }
                 }
             } else if args.resume.is_some() || args.continue_session.is_some() {
-                // Session resume functionality
                 println!("Session resume not yet implemented");
             } else if args.worktree {
-                // Worktree mode
                 println!("Worktree mode not yet implemented");
             } else {
                 // Regular interactive mode

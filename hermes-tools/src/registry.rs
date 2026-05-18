@@ -63,6 +63,11 @@ impl ToolRegistry {
         }
     }
 
+    pub async fn get_all_tools(&self) -> Vec<Arc<dyn Tool>> {
+        let r = self.tools.read().await;
+        r.values().cloned().collect()
+    }
+
     pub async fn register(&self, tool: Arc<dyn Tool>) {
         let mut w = self.tools.write().await;
         let name = tool.name().to_string();

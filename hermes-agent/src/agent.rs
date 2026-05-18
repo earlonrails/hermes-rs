@@ -64,6 +64,7 @@ impl AIAgent {
                         }.into());
                     }
                     Message::Assistant { content, tool_calls, .. } => {
+                        // Convert our internal tool calls to the format expected by async-openai.
                         let mapped_tool_calls = tool_calls.as_ref().map(|calls| {
                             calls.iter().map(|tc| {
                                 ChatCompletionMessageToolCall {
@@ -74,16 +75,23 @@ impl AIAgent {
                                         arguments: tc.function.arguments.clone(),
                                     },
                                 }
-                            }).collect()
+                            }).collect::<Vec<_>>()
                         });
 
-                        api_messages.push(ChatCompletionRequestAssistantMessage {
-                            role: Role::Assistant,
-                            content: content.clone(),
-                            tool_calls: mapped_tool_calls,
-                            name: None,
-                            function_call: None,
-                        }.into());
+                        // Only push a message if we have either text content or tool calls.
+                        let is_empty = content.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true);
+                        let has_tool_calls = mapped_tool_calls.as_ref().map(|c| !c.is_empty()).unwrap_or(false);
+                        if !(is_empty && !has_tool_calls) {
+                            let mut builder = async_openai::types::ChatCompletionRequestAssistantMessageArgs::default();
+                            if let Some(ref text) = content {
+                                builder.content(text.clone());
+                            }
+                            if let Some(ref calls) = mapped_tool_calls {
+                                builder.tool_calls(calls.clone());
+                            }
+                            let assistant_msg = builder.build().expect("Failed to build assistant message");
+                            api_messages.push(assistant_msg.into());
+                        }
                     }
                     Message::Tool { content, tool_call_id } => {
                         api_messages.push(async_openai::types::ChatCompletionRequestToolMessage {

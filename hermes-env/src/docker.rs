@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions, StartContainerOptions, RemoveContainerOptions, LogOutput};
 use bollard::exec::{CreateExecOptions, StartExecResults, StartExecOptions};
-use futures::StreamExt;
+use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -73,7 +73,7 @@ impl Environment for DockerEnv {
         let exec = self.docker.create_exec(&self.id, exec_options).await
             .map_err(|e| EnvError::ExecutionFailed(e.to_string()))?;
             
-        let start_options = StartExecOptions { detach: false };
+        let start_options = StartExecOptions { detach: false, ..Default::default() };
         let mut stdout_buf = String::new();
         let mut stderr_buf = String::new();
         
@@ -107,7 +107,8 @@ impl Environment for DockerEnv {
     
     async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), EnvError> {
         // Implement via execute or tar stream
-        let encoded = base64::encode(content);
+        use base64::Engine;
+        let encoded = base64::prelude::BASE64_STANDARD.encode(content);
         let cmd = format!("echo '{}' | base64 -d > {}", encoded, path);
         self.execute(&cmd, ExecutionConfig::default()).await?;
         Ok(())

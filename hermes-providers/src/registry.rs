@@ -20,7 +20,7 @@ impl ProviderRegistry {
     
     /// Register a provider
     pub fn register(&self, provider: Arc<dyn LLMProvider + Send + Sync>) {
-        let profile = provider.profile();
+        let profile = provider.profile().clone();
         
         // Register by name
         if let Ok(mut profiles) = self.profiles.write() {

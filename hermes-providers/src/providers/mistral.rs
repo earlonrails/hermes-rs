@@ -62,7 +62,7 @@ impl LLMProvider for MistralProvider {
         &self,
         api_key: Option<&str>,
         _timeout: f64,
-    ) -> Result<Vec<String>, ProviderError> {
+    ) -> std::result::Result<Vec<String>, ProviderError> {
         let client = reqwest::Client::new();
         let mut request = client.request(reqwest::Method::GET, &self.profile.models_url);
         
@@ -87,7 +87,8 @@ impl LLMProvider for MistralProvider {
         let data: serde_json::Value = response.json().await
             .map_err(|e| ProviderError::InvalidResponseFormat(e.to_string()))?;
             
-        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&Vec::new());
+        let default_vec = Vec::new();
+        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&default_vec);
         Ok(models.iter()
             .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
             .collect())
@@ -96,7 +97,7 @@ impl LLMProvider for MistralProvider {
     async fn create_chat_completion(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionResponse, ProviderError> {
+    ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
         let openai_provider = super::openai::OpenAIProvider::new_with_profile(
             None,
             Some(self.profile.base_url.clone()),
@@ -109,7 +110,7 @@ impl LLMProvider for MistralProvider {
     async fn create_chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionStream, ProviderError> {
+    ) -> std::result::Result<ChatCompletionStream, ProviderError> {
         let openai_provider = super::openai::OpenAIProvider::new_with_profile(
             None,
             Some(self.profile.base_url.clone()),

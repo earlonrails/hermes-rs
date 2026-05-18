@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use enigo::{Enigo, KeyboardControllable, MouseControllable, MouseButton};
 use xcap::Monitor;
 use base64::{Engine as _, engine::general_purpose};
-use tracing::{debug, error};
+use tracing::debug;
 
 pub struct ComputerUse {
     enigo: Arc<Mutex<Enigo>>,
@@ -55,7 +55,7 @@ impl ComputerUse {
         
         // Convert to PNG in memory
         let mut buffer = std::io::Cursor::new(Vec::new());
-        image.write_to(&mut buffer, image::ImageOutputFormat::Png)
+        image.write_to(&mut buffer, image::ImageFormat::Png)
             .map_err(|e| e.to_string())?;
             
         let encoded = general_purpose::STANDARD.encode(buffer.into_inner());

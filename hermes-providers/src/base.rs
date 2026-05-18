@@ -149,7 +149,7 @@ impl ProviderProfile {
         }
         if !self.base_url.is_empty() {
             if let Ok(url) = url::Url::parse(&self.base_url) {
-                return url.host().unwrap_or_default().to_string();
+                return url.host().map(|h| h.to_string()).unwrap_or_default();
             }
         }
         String::new()

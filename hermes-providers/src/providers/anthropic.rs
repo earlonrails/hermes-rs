@@ -135,7 +135,7 @@ impl AnthropicProvider {
         }
 
         // Merge adjacent messages of the same role (Anthropic requires alternating roles)
-        let mut merged_messages = Vec::new();
+        let mut merged_messages: Vec<serde_json::Value> = Vec::new();
         for msg in messages {
             if let Some(last) = merged_messages.last_mut() {
                 if last["role"] == msg["role"] {
@@ -237,7 +237,7 @@ impl LLMProvider for AnthropicProvider {
         &self,
         api_key: Option<&str>,
         _timeout: f64,
-    ) -> Result<Vec<String>, ProviderError> {
+    ) -> std::result::Result<Vec<String>, ProviderError> {
         let client = reqwest::Client::new();
         let url = "https://api.anthropic.com/v1/models";
         
@@ -271,7 +271,8 @@ impl LLMProvider for AnthropicProvider {
         let data: serde_json::Value = response.json().await
             .map_err(|e| ProviderError::InvalidResponseFormat(e.to_string()))?;
         
-        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&Vec::new());
+        let default_vec = Vec::new();
+        let models = data.get("data").and_then(|d| d.as_array()).unwrap_or(&default_vec);
         
         Ok(models.iter()
             .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
@@ -281,7 +282,7 @@ impl LLMProvider for AnthropicProvider {
     async fn create_chat_completion(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionResponse, ProviderError> {
+    ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
         let body = self.build_anthropic_request(&request);
         
         let client = reqwest::Client::new();
@@ -319,7 +320,8 @@ impl LLMProvider for AnthropicProvider {
         let data: serde_json::Value = response.json().await
             .map_err(|e| ProviderError::InvalidResponseFormat(e.to_string()))?;
         
-        let content_blocks = data.get("content").and_then(|c| c.as_array()).unwrap_or(&Vec::new());
+        let default_vec = Vec::new();
+        let content_blocks = data.get("content").and_then(|c| c.as_array()).unwrap_or(&default_vec);
         let mut text_content = String::new();
         let mut tool_calls = Vec::new();
 
@@ -379,7 +381,7 @@ impl LLMProvider for AnthropicProvider {
     async fn create_chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionStream, ProviderError> {
+    ) -> std::result::Result<ChatCompletionStream, ProviderError> {
         let mut body = self.build_anthropic_request(&request);
         body["stream"] = serde_json::Value::Bool(true);
         
