@@ -2,6 +2,33 @@ use crate::registry::Tool;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::fs;
+use std::path::{Path, Component};
+
+fn is_path_safe(path_str: &str) -> bool {
+    let path = Path::new(path_str);
+    
+    for component in path.components() {
+        if let Component::ParentDir = component {
+            return false;
+        }
+    }
+
+    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+        let normalized = file_name.to_lowercase();
+        if normalized == ".env" 
+            || normalized.contains("key") 
+            || normalized.contains("oauth")
+            || normalized.contains("secret")
+            || normalized.contains("credential")
+            || normalized == "passwd" 
+            || normalized == "shadow" 
+        {
+            return false;
+        }
+    }
+    
+    true
+}
 
 pub struct ReadFileTool;
 
@@ -36,6 +63,10 @@ impl Tool for ReadFileTool {
             Some(p) => p,
             None => return Ok(json!({ "error": "Missing or invalid 'path' argument" })),
         };
+
+        if !is_path_safe(path) {
+            return Ok(json!({ "error": "Access denied: Reading this path/file is restricted for security." }));
+        }
 
         match fs::read_to_string(path).await {
             Ok(content) => Ok(json!({ "success": true, "content": content })),
@@ -86,15 +117,16 @@ impl Tool for WriteFileTool {
             None => return Ok(json!({ "error": "Missing or invalid 'content' argument" })),
         };
 
+        if !is_path_safe(path) {
+            return Ok(json!({ "error": "Access denied: Writing to this path/file is restricted for security." }));
+        }
+
         match fs::write(path, content).await {
             Ok(_) => Ok(json!({ "success": true })),
             Err(e) => Ok(json!({ "error": format!("Failed to write file: {}", e) })),
         }
     }
 }
-
-inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(ReadFileTool) });
-inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(WriteFileTool) });
 
 pub struct ListDirTool;
 
@@ -119,6 +151,11 @@ impl Tool for ListDirTool {
             Some(p) => p,
             None => return Ok(json!({ "error": "Missing or invalid 'path' argument" })),
         };
+
+        if !is_path_safe(path) {
+            return Ok(json!({ "error": "Access denied: Accessing this directory is restricted for security." }));
+        }
+
         let mut entries = match fs::read_dir(path).await {
             Ok(entries) => entries,
             Err(e) => return Ok(json!({ "error": format!("Failed to read directory: {}", e) })),
@@ -164,8 +201,11 @@ impl Tool for SearchFilesTool {
             Some(p) => p,
             None => return Ok(json!({ "error": "Missing or invalid 'pattern' argument" })),
         };
-        // For now, this is a basic stub since true grep requires the 'ignore' crate or executing grep.
-        // We will just execute a shell command `grep -rn "pattern" path`
+
+        if !is_path_safe(path) {
+            return Ok(json!({ "error": "Access denied: Searching this directory is restricted for security." }));
+        }
+
         let output = std::process::Command::new("grep")
             .arg("-rn")
             .arg(pattern)
@@ -182,5 +222,7 @@ impl Tool for SearchFilesTool {
     }
 }
 
+inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(ReadFileTool) });
+inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(WriteFileTool) });
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(ListDirTool) });
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(SearchFilesTool) });

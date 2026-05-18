@@ -214,7 +214,6 @@ Porting Hermes from Python to Rust (`Hermes-RS`) introduced major structural enh
 * **Python**: Managed TLS through dynamic OpenSSL bindings prone to configuration drift across host operating systems.
 * **Rust**: Strictly standardizes on **Rustls** for all first-party networking stacks, ensuring modern, memory-safe, and independent TLS layers across all host targets.
 
----
 
 ## 🙏 Acknowledgements
 
