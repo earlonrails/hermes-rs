@@ -296,6 +296,225 @@ dependencies = [
 ]
 
 [[package]]
+name = "athena"
+version = "0.1.0"
+dependencies = [
+ "athena-agent",
+ "athena-core",
+ "athena-tools",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "dirs 5.0.1",
+ "dotenvy",
+ "indicatif",
+ "openssl",
+ "rand 0.8.6",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "zip",
+]
+
+[[package]]
+name = "athena-agent"
+version = "0.1.0"
+dependencies = [
+ "async-openai 0.18.3",
+ "async-trait",
+ "athena-core",
+ "athena-state",
+ "athena-tools",
+ "futures",
+ "serde",
+ "serde_json",
+ "tiktoken-rs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "athena-browser"
+version = "0.1.0"
+dependencies = [
+ "athena-tools",
+ "base64 0.22.1",
+ "enigo",
+ "image",
+ "serde",
+ "serde_json",
+ "thirtyfour",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "xcap",
+]
+
+[[package]]
+name = "athena-core"
+version = "0.1.0"
+dependencies = [
+ "dirs 5.0.1",
+ "serde",
+ "serde_yaml",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "athena-env"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "bollard",
+ "futures-util",
+ "reqwest 0.12.28",
+ "russh",
+ "russh-keys",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "athena-gateway"
+version = "0.1.0"
+dependencies = [
+ "athena-agent",
+ "athena-core",
+ "athena-tools",
+ "dotenvy",
+ "teloxide",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "athena-mcp"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "athena-tools",
+ "futures",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "athena-multimedia"
+version = "0.1.0"
+dependencies = [
+ "athena-tools",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "athena-plugins"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "athena-core",
+ "athena-tools",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "wasmtime",
+ "wasmtime-wasi",
+]
+
+[[package]]
+name = "athena-providers"
+version = "0.1.0"
+dependencies = [
+ "async-openai 0.20.0",
+ "async-trait",
+ "bytes",
+ "eventsource-stream",
+ "futures",
+ "lazy_static",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "athena-skills"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fastembed",
+ "ort-sys",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "athena-state"
+version = "0.1.0"
+dependencies = [
+ "athena-core",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "athena-tools"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "athena-core",
+ "inventory",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "athena-tui-gateway"
+version = "0.1.0"
+dependencies = [
+ "athena-agent",
+ "athena-core",
+ "athena-tools",
+ "dotenvy",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2141,225 +2360,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "hermes"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "clap_complete",
- "dirs 5.0.1",
- "dotenvy",
- "hermes-agent",
- "hermes-core",
- "hermes-tools",
- "indicatif",
- "openssl",
- "rand 0.8.6",
- "rustyline",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "zip",
-]
-
-[[package]]
-name = "hermes-agent"
-version = "0.1.0"
-dependencies = [
- "async-openai 0.18.3",
- "async-trait",
- "futures",
- "hermes-core",
- "hermes-state",
- "hermes-tools",
- "serde",
- "serde_json",
- "tiktoken-rs",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hermes-browser"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "enigo",
- "hermes-tools",
- "image",
- "serde",
- "serde_json",
- "thirtyfour",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "xcap",
-]
-
-[[package]]
-name = "hermes-core"
-version = "0.1.0"
-dependencies = [
- "dirs 5.0.1",
- "serde",
- "serde_yaml",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "hermes-env"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "bollard",
- "futures-util",
- "reqwest 0.12.28",
- "russh",
- "russh-keys",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hermes-gateway"
-version = "0.1.0"
-dependencies = [
- "dotenvy",
- "hermes-agent",
- "hermes-core",
- "hermes-tools",
- "teloxide",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hermes-mcp"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "futures",
- "hermes-tools",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hermes-multimedia"
-version = "0.1.0"
-dependencies = [
- "hermes-tools",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hermes-plugins"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "hermes-core",
- "hermes-tools",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "wasmtime",
- "wasmtime-wasi",
-]
-
-[[package]]
-name = "hermes-providers"
-version = "0.1.0"
-dependencies = [
- "async-openai 0.20.0",
- "async-trait",
- "bytes",
- "eventsource-stream",
- "futures",
- "lazy_static",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "strum",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "hermes-skills"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "fastembed",
- "ort-sys",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "hermes-state"
-version = "0.1.0"
-dependencies = [
- "hermes-core",
- "rusqlite",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "hermes-tools"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "hermes-core",
- "inventory",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "hermes-tui-gateway"
-version = "0.1.0"
-dependencies = [
- "dotenvy",
- "hermes-agent",
- "hermes-core",
- "hermes-tools",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "hex"

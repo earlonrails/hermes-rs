@@ -8,7 +8,7 @@ Phase 5 will focus on reaching feature-parity with the advanced UI and tooling o
 
 > [!WARNING]
 > **Workspace Restriction for Repo Move**
-> You asked if we can move the project to its own repo. While I can definitely initialize a new Git repository for the `hermes-rs` directory (`git init`), I **cannot** move the folder out of the current `c:\Users\earlk\code\hermes-agent` workspace path. My tools are security-restricted to only operate within the currently open VS Code workspace. 
+> You asked if we can move the project to its own repo. While I can definitely initialize a new Git repository for the `hermes-rs` directory (`git init`), I **cannot** move the folder out of the current `c:\Users\earlk\code\athena-agent` workspace path. My tools are security-restricted to only operate within the currently open VS Code workspace. 
 > 
 > **How to proceed:** 
 > 1. You can manually move the `hermes-rs` folder out to `c:\Users\earlk\code\hermes-rs`.
@@ -24,7 +24,7 @@ Phase 5 will focus on reaching feature-parity with the advanced UI and tooling o
 > I propose we focus Phase 5 on:
 > 1. **Context Engine & Prompt Caching**: Porting `agent/prompt_builder.py` and `agent/context_engine.py` to ensure we aren't blowing up the token budget.
 > 2. **Code Execution Environment**: Porting `code_execution_tool.py` for sandboxed AST evaluation.
-> 3. **TUI Gateway Server**: Building the JSON-RPC backend (`hermes-tui-gateway`) so the existing Node.js Ink frontend can attach to our Rust agent.
+> 3. **TUI Gateway Server**: Building the JSON-RPC backend (`athena-tui-gateway`) so the existing Node.js Ink frontend can attach to our Rust agent.
 
 ## Open Questions
 
@@ -36,15 +36,15 @@ Phase 5 will focus on reaching feature-parity with the advanced UI and tooling o
 
 ## Proposed Changes
 
-### [NEW] `hermes-rs/hermes-agent/src/context.rs`
+### [NEW] `hermes-rs/athena-agent/src/context.rs`
 - Port the token counting and context compression logic.
 - Implement truncation for large tool outputs to prevent context overflow.
 
-### [NEW] `hermes-rs/hermes-tui-gateway/` (If sticking with Node.js)
+### [NEW] `hermes-rs/athena-tui-gateway/` (If sticking with Node.js)
 - A new crate implementing `tower-lsp` or a custom JSON-RPC server over stdio.
 - Bridges Ink UI state updates with the Rust AIAgent.
 
-### [NEW] `hermes-rs/hermes-tools/src/code_tool.rs`
+### [NEW] `hermes-rs/athena-tools/src/code_tool.rs`
 - Secure evaluation of Python/JS code snippets (similar to `code_execution_tool.py`).
 
 ## Verification Plan

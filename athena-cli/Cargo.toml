@@ -1,0 +1,32 @@
+[package]
+name = "athena"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "athena"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.34", features = ["full"] }
+athena-core = { path = "../athena-core" }
+athena-agent = { path = "../athena-agent" }
+athena-tools = { path = "../athena-tools" }
+clap = { version = "4.4", features = ["derive"] }
+rustyline = "13.0"
+indicatif = "0.17"
+tracing = "0.1"
+dotenvy = "0.15"
+openssl = { version = "0.10", features = ["vendored"] }
+clap_complete = "4.4"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+rand = "0.8"
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "5.0"
+
+
+[[test]]
+name = "main_tests"
+path = "src/main_tests.rs"

@@ -1,18 +1,18 @@
 [workspace]
 members = [
-    "hermes-core",
-    "hermes-state",
-    "hermes-tools",
-    "hermes-providers",
-    "hermes-agent",
-    "hermes-cli",
-    "hermes-gateway",
-    "hermes-tui-gateway",
-    "hermes-env",
-    "hermes-mcp",
-    "hermes-plugins",
-    "hermes-skills",
-    "hermes-browser",
-    "hermes-multimedia"
+    "athena-core",
+    "athena-state",
+    "athena-tools",
+    "athena-providers",
+    "athena-agent",
+    "athena-cli",
+    "athena-gateway",
+    "athena-tui-gateway",
+    "athena-env",
+    "athena-mcp",
+    "athena-plugins",
+    "athena-skills",
+    "athena-browser",
+    "athena-multimedia"
 ]
 resolver = "2"

@@ -48,7 +48,7 @@ fi
 
 # 3. Build and Install the CLI
 echo -e "${GREEN}Compiling Hermes-RS (this may take a few minutes)...${NC}"
-cargo install --path hermes-cli --locked
+cargo install --path athena-cli --locked
 
 # 4. Final instructions
 echo ""
