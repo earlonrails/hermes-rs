@@ -1,6 +1,5 @@
 use athena_core::config::{load_config, get_env_value};
 use std::process::Command;
-use std::fs;
 
 pub fn run_doctor() {
     println!("\nHermes Diagnostics (Doctor)");

@@ -25,7 +25,7 @@ pub fn run_cron() {
             let output = Command::new("crontab")
                 .arg("-l")
                 .output();
-            
+
             match output {
                 Ok(out) => {
                     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -37,7 +37,7 @@ pub fn run_cron() {
                             .lines()
                             .filter(|line| line.contains("hermes"))
                             .collect();
-                        
+
                         if hermes_jobs.is_empty() {
                             println!("  No active Hermes cron jobs found.");
                         } else {
@@ -88,7 +88,7 @@ pub fn run_cron() {
             // Path to hermes binary
             let exe_path = std::env::current_exe()
                 .unwrap_or_else(|_| std::path::PathBuf::from("hermes"));
-            
+
             // Build the cron line:
             let new_job = format!(
                 "{} {} query \"{}\" >> ~/.hermes/logs/cron.log 2>&1\n",
@@ -100,7 +100,7 @@ pub fn run_cron() {
             current_cron.push_str(&new_job);
 
             // Write back to crontab
-            let mut child = Command::new("crontab")
+            let child = Command::new("crontab")
                 .arg("-")
                 .stdin(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -156,7 +156,7 @@ pub fn run_cron() {
             }
 
             // Write back to crontab
-            let mut child = Command::new("crontab")
+            let child = Command::new("crontab")
                 .arg("-")
                 .stdin(Stdio::piped())
                 .stderr(Stdio::piped())

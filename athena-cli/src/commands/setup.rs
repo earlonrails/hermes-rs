@@ -1,4 +1,4 @@
-use athena_core::config::{load_config, save_config, has_any_provider_configured, get_env_value};
+use athena_core::config::{load_config, save_config, get_env_value};
 use std::io::{self, Write};
 
 /// Interactive setup wizard — walks the user through initial configuration.

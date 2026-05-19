@@ -5,7 +5,7 @@ use tracing::{debug};
 use async_openai::{
     Client,
     config::OpenAIConfig,
-    types::{CreateChatCompletionRequestArgs, Role, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionRequestAssistantMessage, ChatCompletionMessageToolCall, FunctionCall},
+    types::{CreateChatCompletionRequestArgs, Role, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionMessageToolCall, FunctionCall},
 };
 
 pub struct AIAgent {
@@ -205,18 +205,18 @@ impl AIAgent {
 
             for handle in handles {
                 let (tool_id, result_str) = handle.await.map_err(|e| e.to_string())?;
-                
+
                 // Find matching tool call to print its name and style appropriately
                 let tool_name = our_tool_calls.iter()
                     .find(|tc| tc.id == tool_id)
                     .map(|tc| tc.function.name.as_str())
                     .unwrap_or("unknown");
-                
+
                 let icon = match tool_name {
                     "run_command" | "execute_code" => "🐳 [Sandbox Result]",
                     _ => "✔ [Tool Result]"
                 };
-                
+
                 // Clean output preview to prevent huge spam
                 let preview = if result_str.len() > 180 {
                     format!("{}...", &result_str[..180])
