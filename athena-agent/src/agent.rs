@@ -18,6 +18,10 @@ impl AIAgent {
         AIAgentBuilder::new()
     }
 
+    pub fn model(&self) -> &str {
+        &self.config.model
+    }
+
     pub async fn run_conversation(
         &mut self,
         user_message: &str,
@@ -44,6 +48,7 @@ impl AIAgent {
 
         while self.budget.consume() {
             debug!("Starting iteration {} / {}", api_call_count, self.config.max_iterations);
+            println!("🤖 [Thinking] Consulting AI model...");
 
             // Map our strongly typed messages to async-openai's format
             let mut api_messages = Vec::new();
@@ -178,11 +183,17 @@ impl AIAgent {
 
             // Execute tools concurrently
             let mut handles: Vec<JoinHandle<(String, String)>> = Vec::new();
-            for tc in our_tool_calls {
+            for tc in &our_tool_calls {
                 let tool_name = tc.function.name.clone();
                 let args_str = tc.function.arguments.clone();
                 let tool_id = tc.id.clone();
                 let reg = registry.clone();
+
+                let icon = match tool_name.as_str() {
+                    "run_command" | "execute_code" => "🐳 [Sandbox]",
+                    _ => "🛠️ [Calling Tool]",
+                };
+                println!("{} {} with args: {}", icon, tool_name, args_str);
 
                 let handle = tokio::spawn(async move {
                     let parsed_args = serde_json::from_str(&args_str).unwrap_or_else(|_| serde_json::json!({}));
@@ -194,6 +205,26 @@ impl AIAgent {
 
             for handle in handles {
                 let (tool_id, result_str) = handle.await.map_err(|e| e.to_string())?;
+                
+                // Find matching tool call to print its name and style appropriately
+                let tool_name = our_tool_calls.iter()
+                    .find(|tc| tc.id == tool_id)
+                    .map(|tc| tc.function.name.as_str())
+                    .unwrap_or("unknown");
+                
+                let icon = match tool_name {
+                    "run_command" | "execute_code" => "🐳 [Sandbox Result]",
+                    _ => "✔ [Tool Result]"
+                };
+                
+                // Clean output preview to prevent huge spam
+                let preview = if result_str.len() > 180 {
+                    format!("{}...", &result_str[..180])
+                } else {
+                    result_str.clone()
+                };
+                println!("{} {}: {}", icon, tool_name, preview.trim());
+
                 messages.push(Message::Tool {
                     content: result_str,
                     tool_call_id: tool_id,

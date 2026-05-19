@@ -13,11 +13,24 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
         }
     };
 
-    println!("Welcome to Hermes Agent (Rust Edition)");
-    println!("Type '/quit' to exit.");
+    let raw_model = agent.model();
+    let provider = if raw_model.contains("claude") || raw_model.contains("opus") || raw_model.contains("sonnet") {
+        " (Anthropic)"
+    } else if raw_model.contains("gpt") {
+        " (OpenAI)"
+    } else {
+        ""
+    };
+    let model_display = format!("{}{}", raw_model, provider);
+
+    println!("🦉 Athena Interactive Agent Session (v{})", env!("CARGO_PKG_VERSION"));
+    println!("Active Model: {}", model_display);
+    println!("Sandbox Target: Docker (Local container active)");
+    println!("Press Ctrl+D or type 'exit' to quit.");
+    println!();
 
     loop {
-        let readline = rl.readline(">> ");
+        let readline = rl.readline("athena> ");
         match readline {
             Ok(line) => {
                 let input = line.trim();
@@ -25,14 +38,14 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
                     continue;
                 }
 
-                if input == "/quit" || input == "/exit" {
+                if input == "/quit" || input == "/exit" || input == "exit" || input == "quit" {
                     println!("Goodbye!");
                     break;
                 }
 
                 let _ = rl.add_history_entry(input);
 
-                println!("Thinking...");
+                println!();
                 
                 // For now, no persistent history passed in, just a stateless run.
                 // In a future PR we will track history.
