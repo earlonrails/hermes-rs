@@ -1,0 +1,12 @@
+{
+  "name": "athena-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root configuration and setup scripts for Athena's GitHub Pages promotional portal",
+  "scripts": {
+    "app:setup": "node scripts/setup-app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
