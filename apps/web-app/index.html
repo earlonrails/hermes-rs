@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Athena 🦉 | Blazing-Fast Rust AI Agent Framework</title>
+  
+  <!-- SEO Tags -->
+  <meta name="description" content="Athena is a highly concurrent, memory-safe Rust agent framework supporting multi-provider LLMs, Docker and WASM sandboxing, and persistent semantic skills memory." />
+  <meta name="keywords" content="athena, rust, ai agent, hermes agent, agentic workflow, wasm sandboxing, model context protocol, mcp" />
+  <meta name="author" content="Athena Project" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦉</text></svg>" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  
+  <!-- Glowing Background Orbs -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+
+  <!-- Header Navigation -->
+  <header class="navbar" id="main-header">
+    <div class="navbar-container">
+      <div class="logo">
+        <span class="owl-icon">🦉</span>
+        <span class="logo-text">ATHENA</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features" class="nav-link" id="link-features">Features</a>
+        <a href="#playground" class="nav-link" id="link-playground">Playground</a>
+        <a href="#skills" class="nav-link" id="link-skills">Skills Ecosystem</a>
+        <a href="#architecture" class="nav-link" id="link-architecture">Architecture</a>
+        <a href="#onboarding" class="nav-link" id="link-onboarding">Onboarding</a>
+      </nav>
+      <a href="#onboarding" class="btn btn-secondary" id="cta-header-install">Install Now</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero-section" id="hero">
+      <div class="container hero-container">
+        <div class="hero-content">
+          <div class="badge" id="hero-status-badge">⚡ Rust Native Port of Hermes</div>
+          <h1 id="hero-title">Blazing-Fast, Memory-Safe AI Agents</h1>
+          <p class="hero-subtitle">
+            Athena is a high-performance, asynchronous Rust framework for tool-capable AI agents. Build production-grade agents with WebAssembly plugins, secure Docker environments, and local semantic memory.
+          </p>
+          
+          <div class="cta-actions">
+            <a href="#playground" class="btn btn-primary" id="cta-hero-demo">Explore Interactive Demo</a>
+            <a href="#onboarding" class="btn btn-secondary" id="cta-hero-install">Get Started</a>
+          </div>
+
+          <!-- Click-to-copy Terminal Widget -->
+          <div class="terminal-install-widget" id="terminal-install-container">
+            <div class="widget-header">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="widget-title">install.sh</span>
+            </div>
+            <div class="widget-body">
+              <span class="prompt">$</span>
+              <span class="command-text" id="install-command-text">curl -sSL https://raw.githubusercontent.com/earlonrails/athena/main/install.sh | bash</span>
+              <button class="copy-btn" id="btn-copy-install" aria-label="Copy installation command">
+                <span id="copy-btn-icon">📋</span>
+                <span id="copy-btn-text">Copy</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="features">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Built for Scale and Isolation</h2>
+          <p class="section-description">Athena ports the visionary tool-calling and conversational structures of Hermes into a multi-threaded, sandboxed Rust core.</p>
+        </div>
+        
+        <div class="features-grid" id="features-container">
+          <!-- Features will be populated dynamically or fallback to hardcoded in styling -->
+          <div class="feature-card" id="feat-multi-provider-card">
+            <div class="feature-icon">🌐</div>
+            <h3 class="feature-title">Multi-Provider LLM Core</h3>
+            <p class="feature-text">Seamless integration with Anthropic, OpenAI, Gemini, Mistral, and xAI. Complete with custom translation layers for provider-specific tool schemas and streaming protocols.</p>
+          </div>
+          <div class="feature-card" id="feat-sandbox-card">
+            <div class="feature-icon">📦</div>
+            <h3 class="feature-title">Sandboxed Environment</h3>
+            <p class="feature-text">Execute untrusted agent code and terminal tools safely inside isolated Docker containers, serverless Modal endpoints, or secure remote SSH hosts.</p>
+          </div>
+          <div class="feature-card" id="feat-wasm-card">
+            <div class="feature-icon">⚡</div>
+            <h3 class="feature-title">WebAssembly Plugin Manager</h3>
+            <p class="feature-text">Dynamically extend your agent's capabilities with lightweight, isolated .wasm plugins, fully managed with runtime-enforced gas and CPU execution budgets.</p>
+          </div>
+          <div class="feature-card" id="feat-mcp-card">
+            <div class="feature-icon">🔌</div>
+            <h3 class="feature-title">Model Context Protocol (MCP)</h3>
+            <p class="feature-text">Native implementation of the MCP protocol. Act as a host to expose Rust system tools to Claude Desktop, or run as a client consuming external MCP servers.</p>
+          </div>
+          <div class="feature-card" id="feat-skills-card">
+            <div class="feature-icon">🧠</div>
+            <h3 class="feature-title">ONNX Semantic Memory</h3>
+            <p class="feature-text">Zero-cost, lightweight declarative skills ecosystem powered by local ONNX fastembed models and sqlite vector retrieval to dynamically enrich agent prompts.</p>
+          </div>
+          <div class="feature-card" id="feat-computer-use-card">
+            <div class="feature-icon">🖥️</div>
+            <h3 class="feature-title">Browser & Computer Use</h3>
+            <p class="feature-text">Automate complex UI operations. Includes programmatic browser manipulation via WebDriver protocols, direct keyboard/mouse inputs, and screen capture.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Playground Interactive Terminal Section -->
+    <section class="playground-section" id="playground">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Interactive Terminal Playground</h2>
+          <p class="section-description">Click a CLI command to simulate Athena's real-time conversational loops and sandboxed execution tools in action.</p>
+        </div>
+
+        <div class="playground-wrapper">
+          <!-- Command selector buttons -->
+          <div class="command-sidebar">
+            <button class="cmd-tab active" id="btn-cmd-chat">
+              <span class="cmd-icon">💬</span>
+              <div class="cmd-info">
+                <span class="cmd-title">Interactive Session</span>
+                <code class="cmd-tag">athena chat</code>
+              </div>
+            </button>
+            <button class="cmd-tab" id="btn-cmd-query">
+              <span class="cmd-icon">🔍</span>
+              <div class="cmd-info">
+                <span class="cmd-title">One-Shot Query</span>
+                <code class="cmd-tag">athena query</code>
+              </div>
+            </button>
+            <button class="cmd-tab" id="btn-cmd-login">
+              <span class="cmd-icon">🔑</span>
+              <div class="cmd-info">
+                <span class="cmd-title">Interactive Login</span>
+                <code class="cmd-tag">athena login</code>
+              </div>
+            </button>
+            <button class="cmd-tab" id="btn-cmd-dashboard">
+              <span class="cmd-icon">📊</span>
+              <div class="cmd-info">
+                <span class="cmd-title">Launch Dashboard</span>
+                <code class="cmd-tag">athena dashboard</code>
+              </div>
+            </button>
+          </div>
+
+          <!-- Terminal display window -->
+          <div class="terminal-window" id="interactive-terminal">
+            <div class="terminal-header">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="terminal-title">kevin@athena-terminal: ~</span>
+            </div>
+            <div class="terminal-body" id="terminal-screen">
+              <div class="line active-prompt"><span class="prompt">athena-cli $</span> <span class="typing-text" id="terminal-typed-input">athena chat</span></div>
+              <div class="terminal-output-container" id="terminal-output-area">
+                <!-- Typed output goes here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Skills Catalog Explorer Section -->
+    <section class="skills-section" id="skills">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Semantic Memory Skills Catalog</h2>
+          <p class="section-description">Search Athena's declarative vector memory database. Agents automatically query this database using ONNX embeddings to retrieve task instructions at runtime.</p>
+        </div>
+
+        <div class="skills-explorer">
+          <div class="search-bar-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="input-skill-search" placeholder="Type a keyword to query skills (e.g. 'docker', 'wasm', 'browser')..." />
+            <button class="btn btn-primary" id="btn-skill-clear">Reset</button>
+          </div>
+
+          <div class="skills-grid" id="skills-list-container">
+            <!-- Simulated database rows filled by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture-section" id="architecture">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Extensible Cargo Workspace Architecture</h2>
+          <p class="section-description">Athena is compiled from distinct, highly cohesive Rust crates to ensure strict safety boundaries and native multi-threaded execution.</p>
+        </div>
+
+        <div class="architecture-diagram-container">
+          <!-- Glassmorphic SVG diagram -->
+          <svg class="arch-svg" viewBox="0 0 1000 500" id="svg-arch-diagram">
+            <defs>
+              <linearGradient id="glow-grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="100%" stop-color="#6366f1" />
+              </linearGradient>
+              <linearGradient id="glow-grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#818cf8" />
+                <stop offset="100%" stop-color="#ec4899" />
+              </linearGradient>
+              <filter id="glow-filter" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- SVG Blocks representing crates -->
+            <!-- Input Gateway Group -->
+            <g class="arch-group" id="group-gateway" transform="translate(50, 200)">
+              <rect x="0" y="0" width="180" height="100" rx="12" class="arch-node-bg" />
+              <text x="90" y="40" class="arch-node-title">I/O Gateways</text>
+              <text x="90" y="65" class="arch-node-subtitle">CLI, Gateway, TUI</text>
+            </g>
+
+            <!-- Core Agent Crate -->
+            <g class="arch-group highlighted" id="group-agent" transform="translate(300, 200)">
+              <rect x="0" y="0" width="220" height="100" rx="12" class="arch-node-bg" filter="url(#glow-filter)" />
+              <text x="110" y="40" class="arch-node-title">athena-agent</text>
+              <text x="110" y="65" class="arch-node-subtitle">Async execution loop</text>
+            </g>
+
+            <!-- Skills Vector DB -->
+            <g class="arch-group" id="group-skills" transform="translate(300, 50)">
+              <rect x="0" y="0" width="220" height="90" rx="12" class="arch-node-bg" />
+              <text x="110" y="35" class="arch-node-title">athena-skills</text>
+              <text x="110" y="60" class="arch-node-subtitle">ONNX Semantic Retrieval</text>
+            </g>
+
+            <!-- Providers API -->
+            <g class="arch-group" id="group-providers" transform="translate(300, 360)">
+              <rect x="0" y="0" width="220" height="90" rx="12" class="arch-node-bg" />
+              <text x="110" y="35" class="arch-node-title">athena-providers</text>
+              <text x="110" y="60" class="arch-node-subtitle">Anthropic / OpenAI / Gemini</text>
+            </g>
+
+            <!-- Sandboxed Execution environments -->
+            <g class="arch-group highlighted-pink" id="group-sandbox" transform="translate(620, 200)">
+              <rect x="0" y="0" width="240" height="100" rx="12" class="arch-node-bg" filter="url(#glow-filter)" />
+              <text x="120" y="40" class="arch-node-title">athena-env / -plugins</text>
+              <text x="120" y="65" class="arch-node-subtitle">Docker, WASM, SSH Sandboxes</text>
+            </g>
+
+            <!-- Connective Arrows -->
+            <path d="M 230 250 L 290 250" class="arch-flow-arrow" />
+            <path d="M 410 140 L 410 190" class="arch-flow-arrow bidirectional" />
+            <path d="M 410 300 L 410 350" class="arch-flow-arrow bidirectional" />
+            <path d="M 520 250 L 610 250" class="arch-flow-arrow" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Onboarding / CLI Guide Section -->
+    <section class="onboarding-section" id="onboarding">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Zero to Hero in 3 Steps</h2>
+          <p class="section-description">Athena is structured to get you up and running with sandboxed multi-agent execution loops in minutes.</p>
+        </div>
+
+        <div class="onboarding-steps">
+          <div class="step-card" id="step-one-card">
+            <div class="step-num">1</div>
+            <h3 class="step-title">Deploy the Core CLI</h3>
+            <p class="step-body">Install Athena directly from source using the one-liner script, which clones and compiles the Cargo workspace locally.</p>
+            <pre class="step-code"><code>curl -sSL https://raw.githubusercontent.com/earlonrails/athena/main/install.sh | bash</code></pre>
+          </div>
+          <div class="step-card" id="step-two-card">
+            <div class="step-num">2</div>
+            <h3 class="step-title">Configure Credentials</h3>
+            <p class="step-body">Run `athena login` or manually insert your LLM API tokens under your local Athena environment profile file.</p>
+            <pre class="step-code"><code># edit ~/.athena/.env
+OPENAI_API_KEY=sk-proj-...
+ANTHROPIC_API_KEY=sk-ant-...</code></pre>
+          </div>
+          <div class="step-card" id="step-three-card">
+            <div class="step-num">3</div>
+            <h3 class="step-title">Launch Sandboxed Agent</h3>
+            <p class="step-body">Execute interactive agent shells connected natively to your docker environment with safe runtime budgets.</p>
+            <pre class="step-code"><code>athena chat</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer">
+    <div class="container footer-container">
+      <div class="footer-logo">
+        <span class="owl-icon">🦉</span>
+        <span class="logo-text">ATHENA</span>
+      </div>
+      <p class="footer-desc">
+        A premium Rust port of the Hermes Agent framework. Designed for maximum memory security, extreme speed, and safe concurrent executions.
+      </p>
+      <div class="footer-credits">
+        <span>© 2026 Athena Project. Released under the MIT License.</span>
+        <span>Ported from <a href="https://github.com/earlonrails/hermes" target="_blank" rel="noopener noreferrer" id="footer-ref-hermes">Hermes Agent</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
