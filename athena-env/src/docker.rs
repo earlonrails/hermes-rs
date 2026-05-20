@@ -3,7 +3,6 @@ use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions, StartContainerOptions, RemoveContainerOptions, LogOutput};
 use bollard::exec::{CreateExecOptions, StartExecResults, StartExecOptions};
 use futures_util::StreamExt;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::traits::{Environment, ExecutionConfig, ExecutionResult, EnvError};

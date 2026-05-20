@@ -4,7 +4,7 @@ use std::fs;
 use crate::paths::{get_config_path, get_env_path};
 
 /// Top-level Hermes configuration, persisted as ~/.hermes/config.yaml.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HermesConfig {
     /// The currently active profile name (default: "default").
     #[serde(default)]
@@ -41,6 +41,22 @@ pub struct HermesConfig {
     /// Internal config schema version for migrations.
     #[serde(default, rename = "_config_version")]
     pub config_version: u32,
+}
+
+impl Default for HermesConfig {
+    fn default() -> Self {
+        Self {
+            active_profile: None,
+            model: ModelConfig::default(),
+            providers: HashMap::new(),
+            fallback_providers: Vec::new(),
+            terminal_backend: default_terminal_backend(),
+            agent: AgentSettings::default(),
+            gateway: GatewayConfig::default(),
+            tools: ToolsConfig::default(),
+            config_version: 0,
+        }
+    }
 }
 
 fn default_terminal_backend() -> String {
@@ -272,3 +288,107 @@ pub fn has_any_provider_configured() -> bool {
 pub fn hermes_home_display() -> String {
     crate::paths::display_hermes_home()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::sync::Mutex;
+
+    // Mutex to prevent parallel tests from colliding on ATHENA_HOME env var.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn setup_test_env() -> tempfile::TempDir {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        env::set_var("ATHENA_HOME", temp_dir.path());
+        temp_dir
+    }
+
+    #[test]
+    fn test_default_config_generation() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+
+        let config = HermesConfig::default();
+        assert_eq!(config.terminal_backend, "local");
+        assert_eq!(config.agent.max_iterations, 20);
+        assert!(!config.agent.yolo_mode);
+        
+        let tools_cfg = ToolsConfig::default();
+        assert!(tools_cfg.disabled.is_empty());
+        assert!(tools_cfg.extra_dirs.is_empty());
+        
+        let gateway_cfg = GatewayConfig::default();
+        assert!(!gateway_cfg.telegram_enabled);
+        
+        let provider_cfg = ProviderConfig::default();
+        assert_eq!(provider_cfg.name, "");
+    }
+
+    #[test]
+    fn test_save_and_load_config() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let temp_dir = setup_test_env();
+
+        let mut config = HermesConfig::default();
+        config.active_profile = Some("test_profile".to_string());
+        config.model.default = "gpt-4o".to_string();
+
+        // Save to temp dir path directly
+        let config_path = temp_dir.path().join("config.yaml");
+        let yaml = serde_yaml::to_string(&config).unwrap();
+        std::fs::write(&config_path, &yaml).unwrap();
+
+        // Load from the same path
+        let contents = std::fs::read_to_string(&config_path).unwrap();
+        let loaded: HermesConfig = serde_yaml::from_str(&contents).unwrap();
+        assert_eq!(loaded.active_profile, Some("test_profile".to_string()));
+        assert_eq!(loaded.model.default, "gpt-4o");
+    }
+    
+    #[test]
+    fn test_load_config_missing_file() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+        
+        let loaded = load_config();
+        assert_eq!(loaded.terminal_backend, "local"); // Should fall back to default
+    }
+
+    #[test]
+    fn test_env_value_management() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+
+        assert!(save_env_value("TEST_API_KEY", "secret_value").is_ok());
+        assert_eq!(get_env_value("TEST_API_KEY"), Some("secret_value".to_string()));
+
+        assert!(save_env_value("TEST_API_KEY", "new_secret").is_ok());
+        assert_eq!(get_env_value("TEST_API_KEY"), Some("new_secret".to_string()));
+
+        assert!(remove_env_value("TEST_API_KEY").is_ok());
+        assert_eq!(get_env_value("TEST_API_KEY"), None);
+    }
+
+    #[test]
+    fn test_has_any_provider_configured() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+
+        assert!(!has_any_provider_configured());
+
+        save_env_value("OPENAI_API_KEY", "sk-12345").unwrap();
+        assert!(has_any_provider_configured());
+    }
+
+    #[test]
+    fn test_hermes_home_display() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+        
+        let display = hermes_home_display();
+        assert!(!display.is_empty());
+    }
+}
+
+// Rust guideline compliant 2026-02-21

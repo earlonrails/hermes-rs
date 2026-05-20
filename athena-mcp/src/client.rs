@@ -11,7 +11,9 @@ use tracing::error;
 use crate::types::*;
 
 pub struct McpClient {
+    #[allow(dead_code)]
     command: String,
+    #[allow(dead_code)]
     args: Vec<String>,
     request_tx: mpsc::Sender<(JsonRpcRequest, oneshot::Sender<JsonRpcResponse>)>,
     next_id: Arc<AtomicU64>,

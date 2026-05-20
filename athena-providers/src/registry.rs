@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{ProviderProfile, LLMProvider};
 
@@ -101,8 +101,8 @@ impl Default for ProviderRegistry {
     }
 }
 
-/// Global registry instance
 lazy_static::lazy_static! {
+    /// Global registry instance
     pub static ref GLOBAL_REGISTRY: ProviderRegistry = ProviderRegistry::new();
 }
 
@@ -149,3 +149,97 @@ macro_rules! register_provider {
         crate::registry::register_provider(Arc::new($provider));
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use crate::{
+        ChatCompletionRequest, ChatCompletionResponse, ChatCompletionStream, ProviderError,
+    };
+
+    struct MockProvider {
+        profile: ProviderProfile,
+    }
+
+    impl MockProvider {
+        fn new(name: &str, aliases: Vec<&str>) -> Self {
+            let mut profile = ProviderProfile::new(name);
+            profile.aliases = aliases.into_iter().map(|s| s.to_string()).collect();
+            Self { profile }
+        }
+    }
+
+    #[async_trait]
+    impl LLMProvider for MockProvider {
+        fn profile(&self) -> &ProviderProfile {
+            &self.profile
+        }
+        
+        async fn fetch_models(
+            &self,
+            _api_key: Option<&str>,
+            _timeout: f64,
+        ) -> Result<Vec<String>, ProviderError> {
+            Ok(vec![])
+        }
+        
+        async fn create_chat_completion(
+            &self,
+            _request: ChatCompletionRequest,
+        ) -> Result<ChatCompletionResponse, ProviderError> {
+            Err(ProviderError::ApiRequestFailed("mock".into()))
+        }
+        
+        async fn create_chat_completion_stream(
+            &self,
+            _request: ChatCompletionRequest,
+        ) -> Result<ChatCompletionStream, ProviderError> {
+            Err(ProviderError::ApiRequestFailed("mock".into()))
+        }
+    }
+
+    #[test]
+    fn test_registry_basic() {
+        let registry = ProviderRegistry::default();
+        assert!(!registry.contains("mock_provider"));
+        
+        let provider = Arc::new(MockProvider::new("mock_provider", vec!["mp1", "mp2"]));
+        registry.register(provider);
+        
+        assert!(registry.contains("mock_provider"));
+        assert!(registry.contains("mp1"));
+        assert!(registry.contains("mp2"));
+        assert!(!registry.contains("mp3"));
+
+        let p1 = registry.get("mock_provider").unwrap();
+        assert_eq!(p1.profile().name, "mock_provider");
+
+        let p2 = registry.get("mp1").unwrap();
+        assert_eq!(p2.profile().name, "mock_provider");
+
+        let p3 = registry.get_profile("mp2").unwrap();
+        assert_eq!(p3.name, "mock_provider");
+
+        let names = registry.list_providers();
+        assert_eq!(names.len(), 1);
+        assert_eq!(names[0], "mock_provider");
+
+        let profiles = registry.list_provider_profiles();
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0].name, "mock_provider");
+    }
+
+    #[test]
+    fn test_global_registry() {
+        let provider = Arc::new(MockProvider::new("global_mock", vec!["g1"]));
+        register_provider(provider);
+
+        assert!(get_provider("global_mock").is_some());
+        assert!(get_provider_profile("g1").is_some());
+        assert!(list_providers().contains(&"global_mock".to_string()));
+        assert!(list_provider_profiles().iter().any(|p| p.name == "global_mock"));
+    }
+}
+
+// Rust guideline compliant 2026-02-21

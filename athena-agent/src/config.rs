@@ -37,3 +37,28 @@ impl Default for AgentConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_agent_config_default() {
+        let config = AgentConfig::default();
+        assert_eq!(config.base_url, None);
+        assert_eq!(config.api_key, None);
+        assert_eq!(config.provider, None);
+        assert_eq!(config.api_mode, None);
+        assert_eq!(config.model, "anthropic/claude-opus-4.6");
+        assert_eq!(config.max_iterations, 90);
+        assert_eq!(config.tool_delay_ms, 1000);
+        assert!(config.enabled_toolsets.is_empty());
+        assert!(config.disabled_toolsets.is_empty());
+        assert!(!config.save_trajectories);
+        assert!(!config.verbose_logging);
+        assert!(!config.quiet_mode);
+        assert_eq!(config.platform, None);
+    }
+}
+
+// Rust guideline compliant 2026-02-21

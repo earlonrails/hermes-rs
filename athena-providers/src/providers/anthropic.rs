@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error};
 use futures::StreamExt;
 use eventsource_stream::Eventsource;
 
@@ -239,9 +238,13 @@ impl LLMProvider for AnthropicProvider {
         _timeout: f64,
     ) -> std::result::Result<Vec<String>, ProviderError> {
         let client = reqwest::Client::new();
-        let url = "https://api.anthropic.com/v1/models";
+        let url = if self.profile.models_url.is_empty() {
+            "https://api.anthropic.com/v1/models".to_string()
+        } else {
+            self.profile.models_url.clone()
+        };
         
-        let mut request = client.request(reqwest::Method::GET, url);
+        let mut request = client.request(reqwest::Method::GET, &url);
         
         if let Some(key) = api_key {
             request = request.header("x-api-key", key);
@@ -534,3 +537,103 @@ impl LLMProvider for AnthropicProvider {
 pub fn register() {
     register_provider(Arc::new(AnthropicProvider::new()));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use wiremock::matchers::{method, path, header};
+
+    #[tokio::test]
+    async fn test_anthropic_profile() {
+        let profile = anthropic_profile();
+        assert_eq!(profile.name, "anthropic");
+        assert_eq!(profile.api_mode, ApiMode::AnthropicMessages);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+        assert_eq!(profile.default_headers.get("anthropic-version").unwrap(), "2023-06-01");
+    }
+
+    #[tokio::test]
+    async fn test_anthropic_provider_new() {
+        let provider = AnthropicProvider::new();
+        assert_eq!(provider.profile().name, "anthropic");
+        
+        let custom_profile = ProviderProfile::new("custom_anthropic");
+        let custom_provider = AnthropicProvider::new_with_profile(custom_profile);
+        assert_eq!(custom_provider.profile().name, "custom_anthropic");
+    }
+
+    #[tokio::test]
+    async fn test_build_anthropic_request() {
+        let provider = AnthropicProvider::new();
+        
+        let request = ChatCompletionRequest {
+            model: "claude-3-opus-20240229".to_string(),
+            messages: vec![
+                ChatMessage {
+                    role: MessageRole::System,
+                    content: "sys_prompt".to_string(),
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
+                ChatMessage {
+                    role: MessageRole::User,
+                    content: "user_msg".to_string(),
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
+            ],
+            temperature: Some(0.5),
+            max_tokens: Some(1024),
+            top_p: Some(0.5),
+            stop: Some(vec!["stop1".to_string()]),
+            stream: false,
+            tools: None,
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let body = provider.build_anthropic_request(&request);
+        
+        assert_eq!(body["model"], "claude-3-opus-20240229");
+        assert_eq!(body["max_tokens"], 1024);
+        assert_eq!(body["system"], "sys_prompt");
+        assert_eq!(body["temperature"], 0.5);
+        assert_eq!(body["top_p"], 0.5);
+        assert!(body["stop_sequences"].is_array());
+        
+        let msgs = body["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0]["role"], "user");
+        assert_eq!(msgs[0]["content"], "user_msg");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "data": [
+                {"type": "model", "id": "claude-3-opus-20240229", "display_name": "Claude 3 Opus"}
+            ]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = anthropic_profile();
+        profile.models_url = format!("{}/models", mock_server.uri());
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let models = provider.fetch_models(None, 10.0).await.unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0], "claude-3-opus-20240229");
+    }
+}
+
+// Rust guideline compliant 2026-02-21

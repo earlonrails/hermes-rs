@@ -74,3 +74,5 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
         }
     }
 }
+
+// Rust guideline compliant 2026-02-21

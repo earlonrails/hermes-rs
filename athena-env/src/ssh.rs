@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use russh::{client, ChannelMsg};
-use russh_keys::key::KeyPair;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

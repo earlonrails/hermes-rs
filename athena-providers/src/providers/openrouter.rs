@@ -1,11 +1,6 @@
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::debug;
 
 use crate::base::*;
 use crate::error::*;
@@ -48,31 +43,17 @@ pub fn openrouter_profile() -> ProviderProfile {
 /// Uses async-openai with OpenRouter's OpenAI-compatible endpoint
 pub struct OpenRouterProvider {
     profile: ProviderProfile,
-    client: Client<OpenAIConfig>,
 }
 
 impl OpenRouterProvider {
-    pub fn new(api_key: Option<String>) -> Self {
-        let mut config = OpenAIConfig::new();
-        if let Some(key) = api_key {
-            config = config.with_api_key(key);
-        }
-        config = config.with_api_base("https://openrouter.ai/api/v1");
-        
+    pub fn new(_api_key: Option<String>) -> Self {
         Self {
             profile: openrouter_profile(),
-            client: Client::with_config(config),
         }
     }
     
-    pub fn new_with_profile(api_key: Option<String>, profile: ProviderProfile) -> Self {
-        let mut config = OpenAIConfig::new();
-        if let Some(key) = api_key {
-            config = config.with_api_key(key);
-        }
-        config = config.with_api_base(profile.base_url.clone());
-        
-        Self { profile, client: Client::with_config(config) }
+    pub fn new_with_profile(profile: ProviderProfile) -> Self {
+        Self { profile }
     }
 }
 
@@ -87,11 +68,19 @@ impl LLMProvider for OpenRouterProvider {
         api_key: Option<&str>,
         _timeout: f64,
     ) -> std::result::Result<Vec<String>, ProviderError> {
-        // OpenRouter has a public models endpoint that doesn't require auth
         let client = reqwest::Client::new();
-        let url = "https://openrouter.ai/api/v1/models";
+        let url = if self.profile.models_url.is_empty() {
+            "https://openrouter.ai/api/v1/models".to_string()
+        } else {
+            self.profile.models_url.clone()
+        };
         
-        let mut request = client.request(reqwest::Method::GET, url);
+        let mut request = client.request(reqwest::Method::GET, &url);
+        
+        // Add auth header if API key is provided
+        if let Some(key) = api_key {
+            request = request.header("Authorization", format!("Bearer {}", key));
+        }
         
         // Add headers
         request = request
@@ -160,3 +149,56 @@ impl LLMProvider for OpenRouterProvider {
 pub fn register() {
     register_provider(Arc::new(OpenRouterProvider::new(None)));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use wiremock::matchers::{method, path};
+
+    #[tokio::test]
+    async fn test_openrouter_profile() {
+        let profile = openrouter_profile();
+        assert_eq!(profile.name, "openrouter");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+        assert_eq!(profile.default_headers.get("HTTP-Referer").unwrap(), "https://github.com/hermes-ai/hermes-rs");
+    }
+
+    #[tokio::test]
+    async fn test_openrouter_provider_new() {
+        let provider = OpenRouterProvider::new(None);
+        assert_eq!(provider.profile().name, "openrouter");
+        
+        let custom_profile = ProviderProfile::new("custom_or");
+        let custom_provider = OpenRouterProvider::new_with_profile(custom_profile);
+        assert_eq!(custom_provider.profile().name, "custom_or");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "data": [
+                {"id": "anthropic/claude-sonnet-4.6", "object": "model"}
+            ]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/api/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = openrouter_profile();
+        profile.models_url = format!("{}/api/v1/models", mock_server.uri());
+        let provider = OpenRouterProvider::new_with_profile(profile);
+        
+        let models = provider.fetch_models(Some("test_key"), 10.0).await.unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0], "anthropic/claude-sonnet-4.6");
+    }
+}
+
+// Rust guideline compliant 2026-02-21

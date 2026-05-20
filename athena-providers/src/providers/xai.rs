@@ -1,7 +1,3 @@
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -122,3 +118,51 @@ impl LLMProvider for XAIProvider {
 pub fn register() {
     register_provider(Arc::new(XAIProvider::new()));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use wiremock::matchers::{method, path};
+
+    #[tokio::test]
+    async fn test_xai_profile() {
+        let profile = xai_profile();
+        assert_eq!(profile.name, "xai");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+        assert_eq!(profile.hostname, "api.x.ai");
+    }
+
+    #[tokio::test]
+    async fn test_xai_provider_new() {
+        let provider = XAIProvider::new();
+        assert_eq!(provider.profile().name, "xai");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "data": [
+                {"id": "grok-beta", "object": "model"}
+            ]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let mut provider = XAIProvider::new();
+        provider.profile.models_url = format!("{}/models", mock_server.uri());
+        
+        let models = provider.fetch_models(Some("test_key"), 10.0).await.unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0], "grok-beta");
+    }
+}
+
+// Rust guideline compliant 2026-02-21

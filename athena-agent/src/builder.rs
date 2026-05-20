@@ -52,3 +52,35 @@ impl Default for AIAgentBuilder {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_default() {
+        let builder = AIAgentBuilder::default();
+        let agent = builder.build();
+        assert_eq!(agent.config.model, "anthropic/claude-opus-4.6");
+    }
+
+    #[test]
+    fn test_builder_chaining() {
+        let budget = IterationBudget::new(50);
+        let agent = AIAgentBuilder::new()
+            .model("gpt-4o")
+            .base_url("http://localhost:8080")
+            .api_key("test-key")
+            .max_iterations(100)
+            .budget(budget)
+            .build();
+
+        assert_eq!(agent.config.model, "gpt-4o");
+        assert_eq!(agent.config.base_url, Some("http://localhost:8080".to_string()));
+        assert_eq!(agent.config.api_key, Some("test-key".to_string()));
+        assert_eq!(agent.config.max_iterations, 100);
+        assert_eq!(agent.budget.remaining(), 50);
+    }
+}
+
+// Rust guideline compliant 2026-02-21

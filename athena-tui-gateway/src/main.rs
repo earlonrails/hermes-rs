@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::io::{stdin, stdout, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RpcRequest {

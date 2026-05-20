@@ -51,3 +51,41 @@ impl ContextEngine {
         compressed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Message;
+
+    #[test]
+    fn test_context_engine_count_tokens() {
+        let engine = ContextEngine::new(100);
+        let tokens = engine.count_tokens("Hello world");
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn test_context_engine_compress() {
+        let engine = ContextEngine::new(20);
+        let messages = vec![
+            Message::System { content: "Sys".to_string() },
+            // This long string will exceed 20 tokens easily
+            Message::User { content: "This is a very long string that will definitely exceed twenty tokens because it has a lot of words and complex characters.".to_string(), name: None },
+            Message::Assistant { content: Some("Short".to_string()), tool_calls: None, reasoning_content: None },
+            Message::Tool { content: "Res".to_string(), tool_call_id: "call_1".to_string() }
+        ];
+
+        let compressed = engine.compress(&messages);
+        
+        // It iterates backwards. Tool and Assistant will fit.
+        // User message is too big and will break the loop, meaning System and User are dropped.
+        assert_eq!(compressed.len(), 2);
+        
+        match &compressed[0] {
+            Message::Assistant { content, .. } => assert_eq!(content.as_deref(), Some("Short")),
+            _ => panic!("Expected Assistant message"),
+        }
+    }
+}
+
+// Rust guideline compliant 2026-02-21

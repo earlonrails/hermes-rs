@@ -56,3 +56,42 @@ impl IterationBudget {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_iteration_budget() {
+        let budget = IterationBudget::new(3);
+        assert_eq!(budget.used(), 0);
+        assert_eq!(budget.remaining(), 3);
+
+        assert!(budget.consume());
+        assert_eq!(budget.used(), 1);
+        assert_eq!(budget.remaining(), 2);
+
+        assert!(budget.consume());
+        assert!(budget.consume());
+        assert!(!budget.consume()); // Exhausted
+        assert_eq!(budget.used(), 3);
+        assert_eq!(budget.remaining(), 0);
+
+        budget.refund();
+        assert_eq!(budget.used(), 2);
+        assert_eq!(budget.remaining(), 1);
+
+        assert!(budget.consume());
+        assert!(!budget.consume());
+    }
+
+    #[test]
+    fn test_refund_zero() {
+        let budget = IterationBudget::new(1);
+        assert_eq!(budget.used(), 0);
+        budget.refund();
+        assert_eq!(budget.used(), 0);
+    }
+}
+
+// Rust guideline compliant 2026-02-21

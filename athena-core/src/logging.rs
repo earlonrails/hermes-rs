@@ -95,3 +95,46 @@ pub fn setup_logging(config: LoggingConfig) -> PathBuf {
 
     log_dir
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_logging_config_default() {
+        let config = LoggingConfig::default();
+        assert_eq!(config.hermes_home, None);
+        assert_eq!(config.level, Level::INFO);
+        assert_eq!(config.mode, None);
+        assert!(!config.force);
+    }
+
+    #[test]
+    fn test_setup_logging_creates_directories() {
+        let temp_dir = TempDir::new().unwrap();
+        
+        let config = LoggingConfig {
+            hermes_home: Some(temp_dir.path().to_path_buf()),
+            level: Level::DEBUG,
+            mode: None,
+            force: false,
+        };
+        
+        let log_dir = setup_logging(config);
+        assert!(log_dir.exists());
+        assert_eq!(log_dir, temp_dir.path().join("logs"));
+        
+        // Setup again should not fail if directory exists, and we test Mode::Gateway coverage
+        let config2 = LoggingConfig {
+            hermes_home: Some(temp_dir.path().to_path_buf()),
+            level: Level::WARN,
+            mode: Some(Mode::Gateway),
+            force: false,
+        };
+        let log_dir2 = setup_logging(config2);
+        assert!(log_dir2.exists());
+    }
+}
+
+// Rust guideline compliant 2026-02-21

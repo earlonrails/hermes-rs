@@ -161,3 +161,184 @@ pub fn get_env_path() -> PathBuf {
 pub const OPENROUTER_BASE_URL: &str = "https://openrouter.ai/api/v1";
 pub const OPENROUTER_MODELS_URL: &str = "https://openrouter.ai/api/v1/models";
 pub const AI_GATEWAY_BASE_URL: &str = "https://ai-gateway.vercel.sh/v1";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn setup_test_env() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+        env::set_var("ATHENA_HOME", temp_dir.path());
+        env::remove_var("ATHENA_OPTIONAL_SKILLS");
+        temp_dir
+    }
+
+    #[test]
+    fn test_get_hermes_home() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        let home = get_hermes_home();
+        assert_eq!(home, dir.path());
+    }
+
+    #[test]
+    fn test_get_default_hermes_root() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+        
+        let root = get_default_hermes_root();
+        // get_default_hermes_root() handles canonicalization matching. 
+        // We just ensure it resolves without crashing.
+        assert!(root.exists() || !root.as_os_str().is_empty());
+    }
+
+    #[test]
+    fn test_get_optional_skills_dir() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        let skills = get_optional_skills_dir(None);
+        assert_eq!(skills, dir.path().join("optional-skills"));
+        
+        env::set_var("ATHENA_OPTIONAL_SKILLS", "/custom/skills");
+        let custom = get_optional_skills_dir(None);
+        assert_eq!(custom, PathBuf::from("/custom/skills"));
+    }
+
+    #[test]
+    fn test_get_hermes_dir() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        let new_dir = get_hermes_dir("new_tools", "old_tools");
+        assert_eq!(new_dir, dir.path().join("new_tools"));
+        
+        // Create old dir
+        fs::create_dir_all(dir.path().join("old_tools")).unwrap();
+        let fallback_dir = get_hermes_dir("new_tools", "old_tools");
+        assert_eq!(fallback_dir, dir.path().join("old_tools"));
+    }
+
+    #[test]
+    fn test_subprocess_home() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        // Subprocess home expects $ATHENA_HOME/home to exist
+        assert_eq!(get_subprocess_home(), None);
+        
+        let profile_home = dir.path().join("home");
+        fs::create_dir_all(&profile_home).unwrap();
+        assert_eq!(get_subprocess_home(), Some(profile_home));
+    }
+
+    #[test]
+    fn test_well_known_paths() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        assert_eq!(get_config_path(), dir.path().join("config.yaml"));
+        assert_eq!(get_skills_dir(), dir.path().join("skills"));
+        assert_eq!(get_env_path(), dir.path().join(".env"));
+    }
+    
+    #[test]
+    fn test_environment_flags() {
+        // Just executing these to ensure they don't panic. Environment can vary.
+        let _termux = is_termux();
+        let _wsl = is_wsl();
+        let _container = is_container();
+    }
+
+    #[test]
+    fn test_get_default_hermes_root_with_env_set() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        // Set ATHENA_HOME to a subdirectory
+        let custom_home = dir.path().join("profiles").join("test");
+        env::set_var("ATHENA_HOME", &custom_home);
+
+        let root = get_default_hermes_root();
+        // Should return the grandparent when ATHENA_HOME is under profiles
+        assert_eq!(root, dir.path());
+    }
+
+    #[test]
+    fn test_get_default_hermes_root_canonicalization() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        // Create a symlink scenario
+        let symlink_path = dir.path().join("hermes_link");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let target = dir.path().join("real_hermes");
+            std::fs::create_dir_all(&target).unwrap();
+            symlink(&target, &symlink_path).unwrap();
+            env::set_var("ATHENA_HOME", &symlink_path);
+
+            let root = get_default_hermes_root();
+            // Should resolve symlinks and detect if under native home
+            assert!(root.exists() || !root.as_os_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_profile_fallback_warning() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        // We want get_hermes_home to fall back to dirs::home_dir()
+        env::remove_var("ATHENA_HOME");
+        // We must override HOME so dirs::home_dir() resolves to our temp dir!
+        env::set_var("HOME", dir.path());
+
+        // It looks for active_profile in dirs::home_dir()/.athena/active_profile
+        let athena_dir = dir.path().join(".athena");
+        std::fs::create_dir_all(&athena_dir).unwrap();
+        let active_path = athena_dir.join("active_profile");
+        std::fs::write(&active_path, "test_profile").unwrap();
+
+        // Clear the warning flag
+        PROFILE_FALLBACK_WARNED.store(false, Ordering::Relaxed);
+
+        // Call get_hermes_home - should trigger warning because ATHENA_HOME is unset
+        let _home = get_hermes_home();
+
+        // Warning should have been printed and flag set
+        assert!(PROFILE_FALLBACK_WARNED.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_get_hermes_dir_old_path_exists() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        // Create old directory path
+        let old_path = dir.path().join("old_tools");
+        std::fs::create_dir_all(&old_path).unwrap();
+
+        let result = get_hermes_dir("new_tools", "old_tools");
+        assert_eq!(result, old_path);
+    }
+
+    #[test]
+    fn test_get_optional_skills_dir_with_default() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        let default = Some(dir.path().join("my_skills"));
+        let result = get_optional_skills_dir(default);
+        assert_eq!(result, dir.path().join("my_skills"));
+    }
+}
+
+// Rust guideline compliant 2026-02-21

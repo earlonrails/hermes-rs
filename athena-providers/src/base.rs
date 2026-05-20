@@ -351,3 +351,77 @@ pub struct StreamToolFunction {
 
 /// Sentinel value for omitting temperature
 pub const OMIT_TEMPERATURE: Option<f32> = None;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_api_mode_default() {
+        assert_eq!(ApiMode::default(), ApiMode::ChatCompletions);
+    }
+
+    #[test]
+    fn test_auth_type_default() {
+        assert_eq!(AuthType::default(), AuthType::ApiKey);
+    }
+
+    #[test]
+    fn test_provider_profile_new() {
+        let profile = ProviderProfile::new("test_provider");
+        assert_eq!(profile.name, "test_provider");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+        assert!(profile.supports_health_check);
+        assert!(profile.aliases.is_empty());
+    }
+
+    #[test]
+    fn test_provider_profile_get_hostname() {
+        let mut profile = ProviderProfile::new("test");
+        
+        // 1. Should use explicit hostname if provided
+        profile.hostname = "explicit.api.com".to_string();
+        profile.base_url = "https://fallback.com/api".to_string();
+        assert_eq!(profile.get_hostname(), "explicit.api.com");
+        
+        // 2. Should derive from base_url if hostname is empty
+        profile.hostname = String::new();
+        assert_eq!(profile.get_hostname(), "fallback.com");
+
+        // 3. Should return empty if URL is invalid
+        profile.base_url = "not a url".to_string();
+        assert_eq!(profile.get_hostname(), "");
+
+        // 4. Should return empty if both are empty
+        profile.base_url = String::new();
+        assert_eq!(profile.get_hostname(), "");
+    }
+
+    #[test]
+    fn test_provider_profile_prepare_messages() {
+        let profile = ProviderProfile::new("test");
+        let messages = vec![serde_json::json!({"role": "user", "content": "hi"})];
+        let prepared = profile.prepare_messages(messages.clone());
+        assert_eq!(prepared, messages);
+    }
+
+    #[test]
+    fn test_provider_profile_build_extra_body() {
+        let profile = ProviderProfile::new("test");
+        let context = HashMap::new();
+        let body = profile.build_extra_body(Some("session_123"), &context);
+        assert!(body.is_empty());
+    }
+
+    #[test]
+    fn test_provider_profile_build_api_kwargs_extras() {
+        let profile = ProviderProfile::new("test");
+        let context = HashMap::new();
+        let (kwargs, headers) = profile.build_api_kwargs_extras(None, &context);
+        assert!(kwargs.is_empty());
+        assert!(headers.is_empty());
+    }
+}
+
+// Rust guideline compliant 2026-02-21

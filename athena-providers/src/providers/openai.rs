@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::base::*;
 use crate::error::*;
@@ -382,3 +382,124 @@ impl LLMProvider for OpenAIProvider {
 pub fn register() {
     register_provider(Arc::new(OpenAIProvider::new(None, None)));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use wiremock::matchers::{method, path};
+
+    #[tokio::test]
+    async fn test_openai_profile() {
+        let profile = openai_profile();
+        assert_eq!(profile.name, "openai");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
+    async fn test_openai_provider_new() {
+        let provider = OpenAIProvider::new(Some("test_key".to_string()), Some("http://localhost".to_string()));
+        assert_eq!(provider.profile().name, "openai");
+        
+        let custom_profile = ProviderProfile::new("custom");
+        let custom_provider = OpenAIProvider::new_with_profile(None, None, custom_profile);
+        assert_eq!(custom_provider.profile().name, "custom");
+    }
+
+    #[tokio::test]
+    async fn test_map_messages() {
+        let provider = OpenAIProvider::new(None, None);
+        let msgs = vec![
+            ChatMessage {
+                role: MessageRole::System,
+                content: "sys".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            ChatMessage {
+                role: MessageRole::User,
+                content: "usr".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            ChatMessage {
+                role: MessageRole::Assistant,
+                content: "ast".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            },
+            ChatMessage {
+                role: MessageRole::Tool,
+                content: "tool_res".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: Some("call_123".to_string()),
+            },
+        ];
+
+        let mapped = provider.map_messages(msgs);
+        assert_eq!(mapped.len(), 4);
+        
+        match &mapped[0] {
+            ChatCompletionRequestMessage::System(sys) => {
+                assert_eq!(sys.content, "sys");
+            }
+            _ => panic!("Expected System"),
+        }
+
+        match &mapped[1] {
+            ChatCompletionRequestMessage::User(user) => {
+                if let async_openai::types::ChatCompletionRequestUserMessageContent::Text(text) = &user.content {
+                    assert_eq!(text, "usr");
+                } else {
+                    panic!("Expected Text");
+                }
+            }
+            _ => panic!("Expected User"),
+        }
+        
+        match &mapped[2] {
+            ChatCompletionRequestMessage::Assistant(ast) => {
+                assert_eq!(ast.content, Some("ast".to_string()));
+            }
+            _ => panic!("Expected Assistant"),
+        }
+        
+        match &mapped[3] {
+            ChatCompletionRequestMessage::Tool(tool) => {
+                assert_eq!(tool.content, "tool_res");
+                assert_eq!(tool.tool_call_id, "call_123");
+            }
+            _ => panic!("Expected Tool"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "object": "list",
+            "data": [
+                {"id": "gpt-4", "object": "model", "created": 1234, "owned_by": "openai"}
+            ]
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let provider = OpenAIProvider::new(Some("test_key".to_string()), Some(mock_server.uri()));
+        let models = provider.fetch_models(None, 10.0).await.unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0], "gpt-4");
+    }
+}
+
+// Rust guideline compliant 2026-02-21

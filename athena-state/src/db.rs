@@ -106,3 +106,45 @@ impl SessionDB {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_session_db_initialization() {
+        // Create an in-memory database to test the schema creation without hitting disk
+        let db = SessionDB::new(Some(PathBuf::from(":memory:"))).unwrap();
+        
+        let conn = db.conn.lock().unwrap();
+        // Verify a table exists to confirm schema init succeeded
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'").unwrap();
+        let exists = stmt.exists([]).unwrap();
+        assert!(exists);
+    }
+
+    #[test]
+    fn test_session_db_creates_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let nested_path = temp_dir.path().join("nested").join("db.sqlite");
+        
+        // This should create the 'nested' directory
+        let db = SessionDB::new(Some(nested_path.clone()));
+        assert!(db.is_ok());
+        assert!(nested_path.exists());
+    }
+
+    #[test]
+    fn test_session_db_default_path() {
+        // We ensure it falls back gracefully when None is passed
+        let temp_dir = TempDir::new().unwrap();
+        std::env::set_var("ATHENA_HOME", temp_dir.path());
+        
+        let db = SessionDB::new(None);
+        assert!(db.is_ok());
+        assert!(temp_dir.path().join(DEFAULT_DB_NAME).exists());
+    }
+}
+
+// Rust guideline compliant 2026-02-21

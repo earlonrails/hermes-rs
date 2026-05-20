@@ -21,3 +21,5 @@ target/
 .kiro/
 
 hermes-agent-python/
+coverage_report.txt
+*_coverage.txt

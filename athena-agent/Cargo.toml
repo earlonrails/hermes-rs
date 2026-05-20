@@ -16,6 +16,7 @@ athena-core = { path = "../athena-core" }
 athena-state = { path = "../athena-state" }
 athena-tools = { path = "../athena-tools" }
 
-[[test]]
-name = "agent_tests"
-path = "src/agent_tests.rs"
+[dev-dependencies]
+wiremock = "0.6"
+
+
