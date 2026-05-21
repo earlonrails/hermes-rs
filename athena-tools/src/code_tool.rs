@@ -74,3 +74,29 @@ impl Tool for CodeExecutionTool {
 }
 
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(CodeExecutionTool) });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_code_execution_tool() {
+        let tool = CodeExecutionTool;
+        assert_eq!(tool.name(), "execute_code");
+        assert_eq!(tool.toolset(), "code_execution");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'language' argument");
+        
+        let result = tool.handle(json!({"language": "python"})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'code' argument");
+        
+        let result = tool.handle(json!({"language": "unknown", "code": "print()"})).await.unwrap();
+        assert_eq!(result["error"], "Unsupported language");
+    }
+}

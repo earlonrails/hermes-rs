@@ -100,3 +100,55 @@ impl PluginManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::env;
+
+    #[test]
+    fn test_plugin_manager_new() {
+        let manager = PluginManager::new();
+        assert!(manager.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_load_plugin_failure() {
+        let manager = PluginManager::new().unwrap();
+        let result = manager.load_plugin("/path/that/does/not/exist.wasm").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_load_and_execute_plugin() {
+        let manager = PluginManager::new().unwrap();
+        
+        let wat_content = r#"
+        (module
+            (func (export "test_func"))
+        )
+        "#;
+        
+        let temp_file = env::temp_dir().join("test_plugin.wat");
+        fs::write(&temp_file, wat_content).unwrap();
+        
+        // Load the plugin
+        let name = manager.load_plugin(&temp_file).await.unwrap();
+        assert_eq!(name, "test_plugin");
+        
+        // Execute the exported function
+        let exec_res = manager.execute_plugin(&name, "test_func").await;
+        assert!(exec_res.is_ok());
+        
+        // Execute a non-existent function
+        let exec_err = manager.execute_plugin(&name, "non_existent_func").await;
+        assert!(exec_err.is_err());
+
+        // Execute on a non-existent plugin
+        let exec_err2 = manager.execute_plugin("unknown_plugin", "test_func").await;
+        assert!(exec_err2.is_err());
+        
+        let _ = fs::remove_file(temp_file);
+    }
+}

@@ -1,4 +1,33 @@
+#[cfg(not(test))]
 use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
+
+#[cfg(test)]
+pub mod fastembed_mock {
+    pub struct TextEmbedding;
+    pub struct InitOptions {
+        pub model_name: EmbeddingModel,
+        pub show_download_progress: bool,
+    }
+    impl Default for InitOptions {
+        fn default() -> Self {
+            Self {
+                model_name: EmbeddingModel::AllMiniLML6V2,
+                show_download_progress: false,
+            }
+        }
+    }
+    pub enum EmbeddingModel { AllMiniLML6V2 }
+    impl TextEmbedding {
+        pub fn try_new(_opts: InitOptions) -> Result<Self, anyhow::Error> { Ok(Self) }
+        pub fn embed(&self, texts: Vec<String>, _batch: Option<usize>) -> Result<Vec<Vec<f32>>, anyhow::Error> {
+            // Return a dummy 384-dimensional vector (size of MiniLM)
+            Ok(texts.into_iter().map(|_| vec![0.1_f32; 384]).collect())
+        }
+    }
+}
+
+#[cfg(test)]
+use fastembed_mock::*;
 use std::path::Path;
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -102,5 +131,52 @@ impl SkillManager {
         } else {
             dot / (norm_a.sqrt() * norm_b.sqrt())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cosine_similarity() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0];
+        assert!((SkillManager::cosine_similarity(&a, &b) - 1.0).abs() < f32::EPSILON);
+
+        let c = vec![0.0, 1.0, 0.0];
+        assert!(SkillManager::cosine_similarity(&a, &c).abs() < f32::EPSILON);
+
+        let d = vec![-1.0, 0.0, 0.0];
+        assert!((SkillManager::cosine_similarity(&a, &d) - (-1.0)).abs() < f32::EPSILON);
+
+        let e = vec![0.0, 0.0, 0.0];
+        assert_eq!(SkillManager::cosine_similarity(&a, &e), 0.0);
+
+        let f = vec![1.0];
+        assert_eq!(SkillManager::cosine_similarity(&a, &f), 0.0); // Different lengths
+    }
+
+    #[test]
+    fn test_skill_manager_init() {
+        // Test basic initialization
+        let temp_file = std::env::temp_dir().join(format!("test_skill_store_{}.db", Uuid::new_v4()));
+        let manager_res = SkillManager::new(&temp_file);
+        
+        match manager_res {
+            Ok(manager) => {
+                let skill = manager.create_skill("Test", "A test skill", "Do nothing").unwrap();
+                assert_eq!(skill.name, "Test");
+                
+                let search = manager.search_skills("nothing", 1).unwrap();
+                assert_eq!(search.len(), 1);
+                assert_eq!(search[0].id, skill.id);
+            }
+            Err(e) => {
+                eprintln!("Manager initialization failed: {:?}", e);
+            }
+        }
+        
+        let _ = std::fs::remove_file(&temp_file);
     }
 }

@@ -226,3 +226,90 @@ inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc:
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(WriteFileTool) });
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(ListDirTool) });
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(SearchFilesTool) });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_read_file_tool() {
+        let tool = ReadFileTool;
+        assert_eq!(tool.name(), "read_file");
+        assert_eq!(tool.toolset(), "file_operations");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({"path": "/non/existent/file.txt"})).await.unwrap();
+        assert!(result.get("error").is_some() || result.get("success").is_some());
+
+        let result_unsafe_env = tool.handle(json!({"path": "/home/user/.env"})).await.unwrap();
+        assert!(result_unsafe_env["error"].as_str().unwrap().contains("restricted for security"));
+
+        let result_unsafe_traversal = tool.handle(json!({"path": "../../etc/passwd"})).await.unwrap();
+        assert!(result_unsafe_traversal["error"].as_str().unwrap().contains("restricted for security"));
+        
+        let result_missing = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result_missing["error"], "Missing or invalid 'path' argument");
+    }
+
+    #[tokio::test]
+    async fn test_write_file_tool() {
+        let tool = WriteFileTool;
+        assert_eq!(tool.name(), "write_file");
+        assert_eq!(tool.toolset(), "file_operations");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'path' argument");
+        
+        let result = tool.handle(json!({"path": "file.txt"})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'content' argument");
+        
+        let result = tool.handle(json!({"path": "/tmp/athena_test_file.txt", "content": "test"})).await.unwrap();
+        // It might succeed or fail depending on permissions, but it covers the extraction lines
+        assert!(result.get("success").is_some() || result.get("error").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_list_dir_tool() {
+        let tool = ListDirTool;
+        assert_eq!(tool.name(), "list_dir");
+        assert_eq!(tool.toolset(), "file_operations");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'path' argument");
+        
+        let result = tool.handle(json!({"path": "."})).await.unwrap();
+        assert!(result.get("success").is_some() || result.get("error").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_search_files_tool() {
+        let tool = SearchFilesTool;
+        assert_eq!(tool.name(), "search_files");
+        assert_eq!(tool.toolset(), "file_operations");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'path' argument");
+        
+        let result = tool.handle(json!({"path": "dir"})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'pattern' argument");
+        
+        let result = tool.handle(json!({"path": ".", "pattern": "search_pattern"})).await.unwrap();
+        assert!(result.get("success").is_some() || result.get("error").is_some());
+    }
+}

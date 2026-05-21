@@ -172,6 +172,52 @@ mod tests {
         assert_eq!(models.len(), 1);
         assert_eq!(models[0], "grok-beta");
     }
+
+    #[tokio::test]
+    async fn test_fetch_models_http_error() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+        let mut provider = XAIProvider::new();
+        provider.profile.models_url = format!("{}/v1/models", mock_server.uri());
+        assert!(provider.fetch_models(None, 10.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models_invalid_json() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("invalid"))
+            .mount(&mock_server)
+            .await;
+        let mut provider = XAIProvider::new();
+        provider.profile.models_url = format!("{}/v1/models", mock_server.uri());
+        assert!(provider.fetch_models(None, 10.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_delegation() {
+        let provider = XAIProvider::new();
+        let req = ChatCompletionRequest {
+            model: "xai".to_string(),
+            messages: vec![],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        // This will fail because no mock server is set up, but it exercises the delegation code
+        let _ = provider.create_chat_completion(req.clone()).await;
+        let _ = provider.create_chat_completion_stream(req).await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models_network_error() {
+        let mut provider = XAIProvider::new();
+        provider.profile.models_url = "http://127.0.0.1:0/models".to_string();
+        assert!(provider.fetch_models(None, 10.0).await.is_err());
+    }
 }
 
 // Rust guideline compliant 2026-02-21

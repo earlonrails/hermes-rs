@@ -8,105 +8,175 @@ use tokio::sync::Mutex;
 use tracing::error;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RpcRequest {
-    jsonrpc: String,
-    method: String,
-    params: Option<Value>,
-    id: Option<u64>,
+pub struct RpcRequest {
+    pub jsonrpc: String,
+    pub method: String,
+    pub params: Option<Value>,
+    pub id: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct RpcResponse {
-    jsonrpc: String,
-    result: Option<Value>,
-    error: Option<Value>,
-    id: Option<u64>,
+pub struct RpcResponse {
+    pub jsonrpc: String,
+    pub result: Option<Value>,
+    pub error: Option<Value>,
+    pub id: Option<u64>,
+}
+
+pub async fn handle_request(
+    line: &str,
+    agent: Arc<Mutex<AIAgent>>,
+    registry: Arc<ToolRegistry>,
+) -> Option<RpcResponse> {
+    if line.trim().is_empty() {
+        return None;
+    }
+
+    let req: RpcRequest = match serde_json::from_str(line) {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Invalid JSON RPC: {}", e);
+            return None;
+        }
+    };
+
+    match req.method.as_str() {
+        "prompt.submit" => {
+            let prompt = req
+                .params
+                .and_then(|p| p.get("prompt").cloned())
+                .and_then(|p| p.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+
+            let req_id = req.id;
+            let mut locked_agent = agent.lock().await;
+            
+            let res = locked_agent
+                .run_conversation(&prompt, Some("You are Hermes TUI."), &registry)
+                .await;
+
+            let response_value = match res {
+                Ok(content) => serde_json::json!({ "content": content }),
+                Err(e) => serde_json::json!({ "error": e }),
+            };
+
+            Some(RpcResponse {
+                jsonrpc: "2.0".into(),
+                result: Some(response_value),
+                error: None,
+                id: req_id,
+            })
+        }
+        _ => Some(RpcResponse {
+            jsonrpc: "2.0".into(),
+            result: None,
+            error: Some(serde_json::json!({ "message": "Method not found" })),
+            id: req.id,
+        }),
+    }
 }
 
 #[tokio::main]
 async fn main() {
     let _ = dotenvy::dotenv();
 
-    // The Node.js Ink TUI communicates over stdio using newline-delimited JSON RPC.
     let stdin = stdin();
     let mut reader = BufReader::new(stdin).lines();
     let mut stdout = stdout();
 
     let registry = Arc::new(ToolRegistry::new());
     let agent_builder = AIAgent::builder().model("gpt-4o").max_iterations(20);
-    
-    // Create an agent protected by a Mutex for sequential execution.
     let agent = Arc::new(Mutex::new(agent_builder.build()));
 
     loop {
         match reader.next_line().await {
             Ok(Some(line)) => {
-                if line.trim().is_empty() { continue; }
-                
-                let req: RpcRequest = match serde_json::from_str(&line) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        error!("Invalid JSON RPC: {}", e);
-                        continue;
-                    }
-                };
+                let agent_clone = Arc::clone(&agent);
+                let reg_clone = Arc::clone(&registry);
 
-                // Simple routing based on method name
-                match req.method.as_str() {
-                    "prompt.submit" => {
-                        // Extract prompt from params and send to agent
-                        let prompt = req.params
-                            .and_then(|p| p.get("prompt").cloned())
-                            .and_then(|p| p.as_str().map(|s| s.to_string()))
-                            .unwrap_or_default();
-                        
-                        let agent_clone = Arc::clone(&agent);
-                        let reg_clone = Arc::clone(&registry);
-                        let req_id = req.id;
-
-                        // We could spawn this if we wanted concurrent UI, but the UI expects a response
-                        tokio::spawn(async move {
-                            let mut locked_agent = agent_clone.lock().await;
-                            let res = locked_agent.run_conversation(&prompt, Some("You are Hermes TUI."), &reg_clone).await;
-                            
-                            let response_value = match res {
-                                Ok(content) => serde_json::json!({ "content": content }),
-                                Err(e) => serde_json::json!({ "error": e }),
-                            };
-
-                            let rpc_res = RpcResponse {
-                                jsonrpc: "2.0".into(),
-                                result: Some(response_value),
-                                error: None,
-                                id: req_id,
-                            };
-                            
-                            let mut out = tokio::io::stdout();
-                            let _ = out.write_all(format!("{}\n", serde_json::to_string(&rpc_res).unwrap_or_default()).as_bytes()).await;
-                            let _ = out.flush().await;
-                        });
+                tokio::spawn(async move {
+                    if let Some(rpc_res) = handle_request(&line, agent_clone, reg_clone).await {
+                        let mut out = tokio::io::stdout();
+                        let _ = out
+                            .write_all(
+                                format!("{}\n", serde_json::to_string(&rpc_res).unwrap_or_default())
+                                    .as_bytes(),
+                            )
+                            .await;
+                        let _ = out.flush().await;
                     }
-                    _ => {
-                        // Unhandled method
-                        let rpc_res = RpcResponse {
-                            jsonrpc: "2.0".into(),
-                            result: None,
-                            error: Some(serde_json::json!({ "message": "Method not found" })),
-                            id: req.id,
-                        };
-                        let _ = stdout.write_all(format!("{}\n", serde_json::to_string(&rpc_res).unwrap_or_default()).as_bytes()).await;
-                        let _ = stdout.flush().await;
-                    }
-                }
+                });
             }
-            Ok(None) => {
-                // EOF
-                break;
-            }
+            Ok(None) => break,
             Err(e) => {
                 error!("Error reading stdin: {}", e);
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rpc_request_deserialization() {
+        let json = r#"{"jsonrpc":"2.0","method":"prompt.submit","params":{"prompt":"hello"},"id":1}"#;
+        let req: RpcRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.jsonrpc, "2.0");
+        assert_eq!(req.method, "prompt.submit");
+        assert_eq!(req.id, Some(1));
+        
+        let prompt = req.params.unwrap().get("prompt").unwrap().as_str().unwrap().to_string();
+        assert_eq!(prompt, "hello");
+    }
+
+    #[test]
+    fn test_rpc_response_serialization() {
+        let res = RpcResponse {
+            jsonrpc: "2.0".to_string(),
+            result: Some(serde_json::json!({"content": "hi"})),
+            error: None,
+            id: Some(1),
+        };
+        
+        let json = serde_json::to_string(&res).unwrap();
+        assert!(json.contains(r#""jsonrpc":"2.0""#));
+        assert!(json.contains(r#""content":"hi""#));
+        assert!(json.contains(r#""id":1"#));
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_empty_line() {
+        let registry = Arc::new(ToolRegistry::new());
+        let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
+        let res = handle_request("   \n", agent, registry).await;
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_invalid_json() {
+        let registry = Arc::new(ToolRegistry::new());
+        let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
+        let res = handle_request("{invalid}", agent, registry).await;
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_handle_request_unknown_method() {
+        let registry = Arc::new(ToolRegistry::new());
+        let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
+        let line = r#"{"jsonrpc":"2.0","method":"unknown.method","id":123}"#;
+        let res = handle_request(line, agent, registry).await;
+        
+        assert!(res.is_some());
+        let response = res.unwrap();
+        assert_eq!(response.id, Some(123));
+        assert!(response.error.is_some());
+        assert_eq!(
+            response.error.unwrap().get("message").unwrap().as_str().unwrap(),
+            "Method not found"
+        );
     }
 }

@@ -913,6 +913,267 @@ mod tests {
         assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
         assert!(err_provider.create_chat_completion_stream(req2).await.is_err());
     }
+
+    #[test]
+    fn test_build_anthropic_request_tool_choice() {
+        let provider = AnthropicProvider::new();
+        
+        let mut request = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: Some(ToolChoice::Auto), extra_body: HashMap::new(),
+        };
+
+        let body1 = provider.build_anthropic_request(&request);
+        assert_eq!(body1["tool_choice"]["type"], "auto");
+
+        request.tool_choice = Some(ToolChoice::Required);
+        let body2 = provider.build_anthropic_request(&request);
+        assert_eq!(body2["tool_choice"]["type"], "any");
+
+        request.tool_choice = Some(ToolChoice::Specific("my_tool".to_string()));
+        let body3 = provider.build_anthropic_request(&request);
+        assert_eq!(body3["tool_choice"]["type"], "tool");
+        assert_eq!(body3["tool_choice"]["name"], "my_tool");
+    }
+
+    #[test]
+    fn test_build_anthropic_request_merge_messages() {
+        let provider = AnthropicProvider::new();
+        
+        let request = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![
+                ChatMessage { role: MessageRole::User, content: "Hi 1".to_string(), name: None, tool_calls: None, tool_call_id: None },
+                ChatMessage { role: MessageRole::User, content: "Hi 2".to_string(), name: None, tool_calls: None, tool_call_id: None },
+                ChatMessage { role: MessageRole::Assistant, content: "Res 1".to_string(), name: None, tool_calls: None, tool_call_id: None },
+                ChatMessage { role: MessageRole::Assistant, content: "Res 2".to_string(), name: None, tool_calls: None, tool_call_id: None },
+            ],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+
+        let body = provider.build_anthropic_request(&request);
+        let msgs = body["messages"].as_array().unwrap();
+        // Should merge into 1 user and 1 assistant
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0]["role"], "user");
+        assert_eq!(msgs[1]["role"], "assistant");
+        
+        // user content should be array of length 2
+        assert_eq!(msgs[0]["content"].as_array().unwrap().len(), 2);
+        assert_eq!(msgs[1]["content"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_build_anthropic_request_extra_body() {
+        let provider = AnthropicProvider::new();
+        let mut extra_body = HashMap::new();
+        extra_body.insert("custom_field".to_string(), serde_json::json!("custom_value"));
+        
+        let request = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None,
+            extra_body,
+        };
+
+        let body = provider.build_anthropic_request(&request);
+        assert_eq!(body["custom_field"], "custom_value");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_models_errors() {
+        let mock_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+        let mut profile = anthropic_profile();
+        profile.models_url = format!("{}/models", mock_server.uri());
+        let provider = AnthropicProvider::new_with_profile(profile.clone());
+        assert!(provider.fetch_models(None, 10.0).await.is_err());
+        
+        // test invalid json
+        let mock_server2 = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("invalid"))
+            .mount(&mock_server2)
+            .await;
+        profile.models_url = format!("{}/models", mock_server2.uri());
+        let provider2 = AnthropicProvider::new_with_profile(profile);
+        assert!(provider2.fetch_models(None, 10.0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_errors() {
+        let error_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&error_server)
+            .await;
+        let mut profile = anthropic_profile();
+        profile.base_url = error_server.uri();
+        let err_provider = AnthropicProvider::new_with_profile(profile.clone());
+        let req2 = ChatCompletionRequest {
+            model: "test".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
+        assert!(err_provider.create_chat_completion_stream(req2).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_stream_tool_use() {
+        let mock_server = MockServer::start().await;
+        
+        let sse_data = concat!(
+            "event: message_start\n",
+            "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":25,\"output_tokens\":1}}}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"get_weather\",\"input\":{}}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"loc\"}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"ation\\\":\\\"SF\\\"}\"}}\n\n",
+            "event: message_delta\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":15}}\n\n",
+            "event: message_stop\n",
+            "data: {\"type\":\"message_stop\"}\n\n"
+        );
+
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_bytes(sse_data.as_bytes())
+                    .insert_header("Content-Type", "text/event-stream")
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = anthropic_profile();
+        profile.base_url = mock_server.uri();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let request = ChatCompletionRequest {
+            model: "claude-3".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+
+        let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
+        let mut stream = stream_res.response;
+        
+        use futures::StreamExt;
+        
+        let chunk1 = stream.next().await.unwrap().unwrap();
+        assert_eq!(chunk1.choices[0].delta.role, Some(MessageRole::Assistant));
+        
+        let chunk2 = stream.next().await.unwrap().unwrap();
+        let tc1 = chunk2.choices[0].delta.tool_calls.as_ref().unwrap();
+        assert_eq!(tc1[0].id.as_deref(), Some("toolu_1"));
+        assert_eq!(tc1[0].function.as_ref().unwrap().name.as_deref(), Some("get_weather"));
+
+        let chunk3 = stream.next().await.unwrap().unwrap();
+        let tc2 = chunk3.choices[0].delta.tool_calls.as_ref().unwrap();
+        assert_eq!(tc2[0].function.as_ref().unwrap().arguments.as_deref(), Some("{\"loc"));
+        
+        let chunk4 = stream.next().await.unwrap().unwrap();
+        let tc3 = chunk4.choices[0].delta.tool_calls.as_ref().unwrap();
+        assert_eq!(tc3[0].function.as_ref().unwrap().arguments.as_deref(), Some("ation\":\"SF\"}"));
+    }
+
+    #[tokio::test]
+    async fn test_anthropic_network_errors() {
+        let mut profile = anthropic_profile();
+        profile.base_url = "http://127.0.0.1:0".to_string(); // Invalid URL, will cause reqwest execute to fail
+        profile.models_url = "http://127.0.0.1:0/models".to_string();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        assert!(provider.fetch_models(None, 10.0).await.is_err());
+        
+        let req = ChatCompletionRequest {
+            model: "claude".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        assert!(provider.create_chat_completion(req.clone()).await.is_err());
+        assert!(provider.create_chat_completion_stream(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_anthropic_build_empty_assistant() {
+        let provider = AnthropicProvider::new();
+        let req = ChatCompletionRequest {
+            model: "claude".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::Assistant, content: "".to_string(), name: None, tool_calls: Some(vec![]), tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        let body = provider.build_anthropic_request(&req);
+        let msgs = body["messages"].as_array().unwrap();
+        assert_eq!(msgs[0]["content"][0]["type"], "text");
+        assert_eq!(msgs[0]["content"][0]["text"], "");
+    }
+    
+    #[tokio::test]
+    async fn test_anthropic_merge_arrays() {
+        let provider = AnthropicProvider::new();
+        
+        // This creates an array content in the first message by having a tool call
+        let msg1 = ChatMessage {
+            role: MessageRole::Assistant,
+            content: "Text".to_string(),
+            name: None,
+            tool_calls: Some(vec![ToolCall {
+                id: "1".to_string(), r#type: "function".to_string(),
+                function: ToolFunction { name: "test".to_string(), arguments: "{}".to_string() }
+            }]),
+            tool_call_id: None,
+        };
+        // This merges another text into the assistant message
+        let msg2 = ChatMessage { role: MessageRole::Assistant, content: "More text".to_string(), name: None, tool_calls: None, tool_call_id: None };
+        
+        let req = ChatCompletionRequest {
+            model: "claude".to_string(),
+            messages: vec![msg1, msg2],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        
+        let body = provider.build_anthropic_request(&req);
+        let msgs = body["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0]["content"].as_array().unwrap().len(), 3);
+    }
+    
+    #[tokio::test]
+    async fn test_anthropic_stream_invalid_json() {
+        let mock_server = MockServer::start().await;
+        let sse_data = concat!(
+            "event: message_start\n",
+            "data: {invalid json}\n\n",
+            "data: [DONE]\n\n"
+        );
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(sse_data.as_bytes()).insert_header("Content-Type", "text/event-stream"))
+            .mount(&mock_server).await;
+            
+        let mut profile = anthropic_profile();
+        profile.base_url = mock_server.uri();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        let req = ChatCompletionRequest {
+            model: "claude".to_string(),
+            messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        let mut stream = provider.create_chat_completion_stream(req).await.unwrap().response;
+        use futures::StreamExt;
+        assert!(stream.next().await.unwrap().is_err());
+    }
 }
 
 // Rust guideline compliant 2026-02-21

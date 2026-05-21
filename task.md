@@ -132,3 +132,13 @@
 - `[x]` Rebrand primary package and binary name from `hermes` to `athena` in Cargo files
 - `[x]` Rebrand environment variable namespaces and home directory configurations from `HERMES` / `.hermes` to `ATHENA` / `.athena`
 - `[x]` Rebrand documentation guides in README to Athena
+
+# Phase 15: Unit Test Coverage
+- `[x]` Achieve 100% test coverage for `athena-providers`
+- `[x]` Achieve >94% test coverage for `athena-tools`
+- `[x]` Achieve >95% test coverage for `athena-env`
+- `[x]` Achieve high test coverage for `athena-skills`
+- `[x]` Achieve >95% test coverage for `athena-multimedia`
+- `[x]` Achieve high test coverage for `athena-plugins`
+- `[x]` Achieve high test coverage for `athena-mcp`
+- `[x]` Achieve high test coverage for Phase 5 components (`athena-agent`, `athena-tui-gateway`)

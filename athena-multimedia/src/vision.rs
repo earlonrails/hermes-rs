@@ -30,3 +30,35 @@ impl VisionProcessor {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vision_processor_new() {
+        let _vp = VisionProcessor::new();
+    }
+
+    #[test]
+    fn test_format_image_url() {
+        let expected = serde_json::json!({
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/image.jpg"
+            }
+        });
+        assert_eq!(VisionProcessor::format_image_url("https://example.com/image.jpg"), expected);
+    }
+
+    #[test]
+    fn test_format_base64() {
+        let expected = serde_json::json!({
+            "type": "image_url",
+            "image_url": {
+                "url": "data:image/png;base64,aGVsbG8="
+            }
+        });
+        assert_eq!(VisionProcessor::format_base64("image/png", "aGVsbG8="), expected);
+    }
+}

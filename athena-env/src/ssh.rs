@@ -112,3 +112,50 @@ impl Environment for SshEnv {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_ssh_env_id() {
+        let env = SshEnv::new("test-ssh", "localhost", "user", "/invalid/key");
+        assert_eq!(env.id(), "test-ssh");
+    }
+
+    #[tokio::test]
+    async fn test_ssh_env_init_fails() {
+        let env = SshEnv::new("test-ssh", "127.0.0.1", "user", "/invalid/key");
+        // Use an invalid port or just expect auth/connection failure
+        let res = env.init().await;
+        assert!(matches!(res, Err(EnvError::InitFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_ssh_env_execute_fails_unconnected() {
+        let env = SshEnv::new("test-ssh", "127.0.0.1", "user", "/invalid/key");
+        let res = env.execute("ls", ExecutionConfig::default()).await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_ssh_env_write_file_fails() {
+        let env = SshEnv::new("test-ssh", "127.0.0.1", "user", "/invalid/key");
+        let res = env.write_file("test.txt", b"hello").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_ssh_env_read_file_fails() {
+        let env = SshEnv::new("test-ssh", "127.0.0.1", "user", "/invalid/key");
+        let res = env.read_file("test.txt").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_ssh_env_destroy() {
+        let env = SshEnv::new("test-ssh", "127.0.0.1", "user", "/invalid/key");
+        let res = env.destroy().await;
+        assert!(res.is_ok());
+    }
+}

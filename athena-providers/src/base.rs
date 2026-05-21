@@ -163,8 +163,8 @@ impl ProviderProfile {
     /// Build extra body fields for the API request
     pub fn build_extra_body(
         &self,
-        session_id: Option<&str>,
-        context: &HashMap<String, serde_json::Value>,
+        _session_id: Option<&str>,
+        _context: &HashMap<String, serde_json::Value>,
     ) -> HashMap<String, serde_json::Value> {
         HashMap::new()
     }
@@ -172,8 +172,8 @@ impl ProviderProfile {
     /// Build provider-specific API kwargs
     pub fn build_api_kwargs_extras(
         &self,
-        reasoning_config: Option<&HashMap<String, serde_json::Value>>,
-        context: &HashMap<String, serde_json::Value>,
+        _reasoning_config: Option<&HashMap<String, serde_json::Value>>,
+        _context: &HashMap<String, serde_json::Value>,
     ) -> (HashMap<String, serde_json::Value>, HashMap<String, serde_json::Value>) {
         (HashMap::new(), HashMap::new())
     }
@@ -421,6 +421,11 @@ mod tests {
         let (kwargs, headers) = profile.build_api_kwargs_extras(None, &context);
         assert!(kwargs.is_empty());
         assert!(headers.is_empty());
+    }
+
+    #[test]
+    fn test_default_true() {
+        assert!(default_true());
     }
 }
 

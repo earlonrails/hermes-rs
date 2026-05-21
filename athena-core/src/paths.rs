@@ -339,6 +339,42 @@ mod tests {
         let result = get_optional_skills_dir(default);
         assert_eq!(result, dir.path().join("my_skills"));
     }
+
+    #[test]
+    fn test_empty_env_vars_fallbacks() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+
+        // 1. ATHENA_HOME set to empty/whitespace
+        env::set_var("ATHENA_HOME", "   ");
+        let home = get_hermes_home();
+        assert!(home.ends_with(".athena")); // Falls back to native ~/.athena
+
+        // 2. get_default_hermes_root empty env_home
+        env::set_var("ATHENA_HOME", "");
+        let root = get_default_hermes_root();
+        assert!(root.ends_with(".athena")); // Falls back to native
+
+        // 3. get_optional_skills_dir empty override
+        env::set_var("ATHENA_OPTIONAL_SKILLS", "   ");
+        let skills = get_optional_skills_dir(None);
+        assert!(skills.ends_with("optional-skills")); // Falls back to default
+    }
+
+    #[test]
+    fn test_display_hermes_home_no_strip_prefix() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+
+        // We set HOME to something completely disjoint from ATHENA_HOME
+        // so strip_prefix fails.
+        env::set_var("HOME", "/tmp/completely/different/path/that/does/not/match");
+        env::set_var("ATHENA_HOME", "/var/lib/athena");
+
+        let display = display_hermes_home();
+        // It shouldn't use ~/ because it's not in the user's home dir
+        assert_eq!(display, "/var/lib/athena");
+    }
 }
 
 // Rust guideline compliant 2026-02-21

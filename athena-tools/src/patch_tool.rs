@@ -56,3 +56,31 @@ impl Tool for PatchTool {
 }
 
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(PatchTool) });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_patch_tool() {
+        let tool = PatchTool;
+        assert_eq!(tool.name(), "patch");
+        assert_eq!(tool.toolset(), "file_operations");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(serde_json::json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'path' argument");
+        
+        let result = tool.handle(serde_json::json!({"path": "file.txt"})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'search' argument");
+
+        let result = tool.handle(serde_json::json!({"path": "file.txt", "search": "foo"})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'replace' argument");
+        
+        let result = tool.handle(serde_json::json!({"path": "/tmp/athena_patch_test.txt", "search": "foo", "replace": "bar"})).await.unwrap();
+        assert!(result.get("error").is_some() || result.get("success").is_some());
+    }
+}

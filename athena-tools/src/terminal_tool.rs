@@ -52,3 +52,27 @@ impl Tool for TerminalTool {
 }
 
 inventory::submit!(crate::registry::RegisteredTool { factory: || std::sync::Arc::new(TerminalTool) });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_terminal_tool() {
+        let tool = TerminalTool;
+        assert_eq!(tool.name(), "run_command");
+        assert_eq!(tool.toolset(), "terminal");
+
+        let schema = tool.schema();
+        assert!(schema.get("description").is_some());
+        assert!(schema.get("parameters").is_some());
+
+        let result = tool.handle(json!({})).await.unwrap();
+        assert_eq!(result["error"], "Missing or invalid 'command' argument");
+        
+        let result = tool.handle(serde_json::json!({"command": "echo test"})).await.unwrap();
+        assert_eq!(result["success"], true);
+        assert!(result["stdout"].as_str().unwrap().contains("test"));
+    }
+}

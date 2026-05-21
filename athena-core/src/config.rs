@@ -389,6 +389,84 @@ mod tests {
         let display = hermes_home_display();
         assert!(!display.is_empty());
     }
+
+    #[test]
+    fn test_default_max_iterations() {
+        let yaml = "{}";
+        let agent: AgentSettings = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(agent.max_iterations, 20); // Hits default_max_iterations
+    }
+
+    #[test]
+    fn test_load_config_invalid_yaml() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        let config_path = dir.path().join("config.yaml");
+        std::fs::write(&config_path, "invalid: : yaml: ").unwrap();
+        
+        let loaded = load_config();
+        assert_eq!(loaded.terminal_backend, "local"); // Default fallback
+    }
+
+    #[test]
+    fn test_save_config_function() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+        
+        let mut config = HermesConfig::default();
+        config.active_profile = Some("save_test".to_string());
+        
+        // This implicitly creates the parent directory since it's saving to ATHENA_HOME/config.yaml
+        assert!(save_config(&config).is_ok());
+        
+        let loaded = load_config();
+        assert_eq!(loaded.active_profile.as_deref(), Some("save_test"));
+    }
+
+    #[test]
+    fn test_get_env_value_process_override() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        
+        env::set_var("ATHENA_TEST_OVERRIDE", "process_value");
+        assert_eq!(get_env_value("ATHENA_TEST_OVERRIDE").as_deref(), Some("process_value"));
+        env::remove_var("ATHENA_TEST_OVERRIDE");
+    }
+
+    #[test]
+    fn test_env_value_inline_replacement() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _dir = setup_test_env();
+        
+        // Make sure it doesn't read from process environment
+        env::remove_var("ATHENA_TEST_INLINE");
+
+        // First save creates the file and appends the line
+        assert!(save_env_value("DUMMY_KEY", "dummy").is_ok()); // This covers the non-matching loop continuation
+        assert!(save_env_value("ATHENA_TEST_INLINE", "first").is_ok());
+        assert_eq!(get_env_value("ATHENA_TEST_INLINE").as_deref(), Some("first"));
+
+        // Second save edits the line in place
+        assert!(save_env_value("ATHENA_TEST_INLINE", "second").is_ok());
+        assert_eq!(get_env_value("ATHENA_TEST_INLINE").as_deref(), Some("second"));
+        
+        // Ensure removal with missing values doesn't crash and works fine
+        assert!(remove_env_value("MISSING_KEY").is_ok());
+        assert!(remove_env_value("ATHENA_TEST_INLINE").is_ok());
+    }
+
+    #[test]
+    fn test_save_env_value_directory_creation() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = setup_test_env();
+        
+        // Set ATHENA_HOME to a non-existent subdirectory
+        let custom_home = dir.path().join("deep").join("nested");
+        env::set_var("ATHENA_HOME", &custom_home);
+        
+        assert!(save_env_value("TEST_DEEP", "val").is_ok());
+        assert!(custom_home.exists());
+    }
 }
 
 // Rust guideline compliant 2026-02-21

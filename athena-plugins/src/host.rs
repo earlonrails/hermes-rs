@@ -19,3 +19,22 @@ impl HermesHost {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hermes_host_new() {
+        let host = HermesHost::new();
+        assert!(host.registry.is_none());
+    }
+
+    #[test]
+    fn test_hermes_host_with_registry() {
+        let registry = Arc::new(ToolRegistry::new());
+        let host = HermesHost::with_registry(registry.clone());
+        assert!(host.registry.is_some());
+        assert_eq!(Arc::strong_count(&registry), 2);
+    }
+}

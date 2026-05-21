@@ -115,3 +115,61 @@ impl SkillStore {
         Ok(results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_skill(id: &str) -> Skill {
+        Skill {
+            id: id.to_string(),
+            name: format!("Skill {}", id),
+            description: format!("Desc {}", id),
+            instructions: format!("Inst {}", id),
+            created_at: 1000,
+            updated_at: 1000,
+        }
+    }
+
+    #[test]
+    fn test_store_init_and_get() {
+        let store = SkillStore::new(":memory:").unwrap();
+        
+        let skill = create_test_skill("1");
+        let embedding = vec![0.1f32, 0.2, 0.3];
+        
+        store.insert_skill(&skill, &embedding).unwrap();
+        
+        let retrieved = store.get_skill("1").unwrap().unwrap();
+        assert_eq!(retrieved.id, "1");
+        assert_eq!(retrieved.name, "Skill 1");
+        assert_eq!(retrieved.description, "Desc 1");
+        assert_eq!(retrieved.instructions, "Inst 1");
+        assert_eq!(retrieved.created_at, 1000);
+        
+        let missing = store.get_skill("2").unwrap();
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_store_get_all_embeddings() {
+        let store = SkillStore::new(":memory:").unwrap();
+        
+        let skill1 = create_test_skill("1");
+        let embed1 = vec![0.1f32, 0.2];
+        store.insert_skill(&skill1, &embed1).unwrap();
+        
+        let skill2 = create_test_skill("2");
+        let embed2 = vec![0.3f32, 0.4];
+        store.insert_skill(&skill2, &embed2).unwrap();
+        
+        let mut embeddings = store.get_all_embeddings().unwrap();
+        embeddings.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        assert_eq!(embeddings.len(), 2);
+        assert_eq!(embeddings[0].0, "1");
+        assert_eq!(embeddings[0].1, embed1);
+        assert_eq!(embeddings[1].0, "2");
+        assert_eq!(embeddings[1].1, embed2);
+    }
+}

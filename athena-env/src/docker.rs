@@ -133,3 +133,51 @@ impl Environment for DockerEnv {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_docker_env_id() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        assert_eq!(env.id(), "test-id");
+    }
+
+    #[tokio::test]
+    async fn test_docker_env_init_fails() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        let res = env.init().await;
+        // Since docker daemon is not running, this should fail
+        assert!(matches!(res, Err(EnvError::InitFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_docker_env_execute_fails() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        let res = env.execute("echo test", ExecutionConfig::default()).await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_docker_env_write_file_fails() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        let res = env.write_file("test.txt", b"hello").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_docker_env_read_file_fails() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        let res = env.read_file("test.txt").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_docker_env_destroy_fails() {
+        let env = DockerEnv::new("test-id", "test-image").unwrap();
+        let res = env.destroy().await;
+        // destroy returns execution failed if remove_container fails
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+}

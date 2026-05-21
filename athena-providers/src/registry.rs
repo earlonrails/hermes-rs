@@ -264,6 +264,39 @@ mod tests {
         assert!(list_providers().contains(&"global_mock".to_string()));
         assert!(list_provider_profiles().iter().any(|p| p.name == "global_mock"));
     }
+
+    #[test]
+    fn test_registry_poisoned() {
+        let registry = ProviderRegistry::new();
+        // Insert an alias first so we can hit the alias check
+        registry.register(Arc::new(MockProvider::new("test_prov", vec!["alias_prov"])));
+        
+        // Poison profiles lock
+        let _ = std::panic::catch_unwind(|| {
+            let _lock = registry.profiles.write().unwrap();
+            panic!("Poisoning");
+        });
+        
+        // Profiles is poisoned, aliases is NOT poisoned.
+        // get("alias_prov") will read alias, then fail to read profiles (hits line 47/49)
+        assert!(registry.get("alias_prov").is_none());
+        assert!(registry.get("test").is_none());
+        assert!(registry.list_providers().is_empty());
+        assert!(registry.list_provider_profiles().is_empty());
+        assert!(!registry.contains("test"));
+        
+        // Poison aliases lock
+        let _ = std::panic::catch_unwind(|| {
+            let _lock = registry.aliases.write().unwrap();
+            panic!("Poisoning");
+        });
+        
+        // Both poisoned. contains() will fail aliases check and fall through (hits line 89)
+        assert!(!registry.contains("test"));
+        
+        // registering into a poisoned registry does nothing but shouldn't panic
+        registry.register(Arc::new(MockProvider::new("test", vec!["alias"])));
+    }
 }
 
 // Rust guideline compliant 2026-02-21

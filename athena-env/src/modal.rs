@@ -70,3 +70,113 @@ impl Environment for ModalEnv {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, header, body_json, path};
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_modal_env_id() {
+        let env = ModalEnv::new("test-modal", "http://localhost", "test-token");
+        assert_eq!(env.id(), "test-modal");
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_init() {
+        let env = ModalEnv::new("test-modal", "http://localhost", "test-token");
+        let res = env.init().await;
+        assert!(res.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_execute_success() {
+        let mock_server = MockServer::start().await;
+        let endpoint = mock_server.uri();
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .and(header("Authorization", "Bearer test-token"))
+            .and(body_json(json!({"command": "echo hello"})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "exit_code": 0,
+                "stdout": "hello\n",
+                "stderr": ""
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let env = ModalEnv::new("test-modal", endpoint, "test-token");
+        let result = env.execute("echo hello", ExecutionConfig::default()).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "hello\n");
+        assert_eq!(result.stderr, "");
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_execute_failure() {
+        let mock_server = MockServer::start().await;
+        let endpoint = mock_server.uri();
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let env = ModalEnv::new("test-modal", endpoint, "test-token");
+        let result = env.execute("echo hello", ExecutionConfig::default()).await;
+
+        assert!(matches!(result, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_execute_network_error() {
+        // Use an invalid endpoint to force a reqwest error
+        let env = ModalEnv::new("test-modal", "http://localhost:1", "test-token");
+        let result = env.execute("echo hello", ExecutionConfig::default()).await;
+        
+        assert!(matches!(result, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_execute_invalid_json() {
+        let mock_server = MockServer::start().await;
+        let endpoint = mock_server.uri();
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("invalid json"))
+            .mount(&mock_server)
+            .await;
+
+        let env = ModalEnv::new("test-modal", endpoint, "test-token");
+        let result = env.execute("echo hello", ExecutionConfig::default()).await;
+
+        assert!(matches!(result, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_write_file() {
+        let env = ModalEnv::new("test-modal", "http://localhost", "test-token");
+        let res = env.write_file("test.txt", b"hello").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_read_file() {
+        let env = ModalEnv::new("test-modal", "http://localhost", "test-token");
+        let res = env.read_file("test.txt").await;
+        assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn test_modal_env_destroy() {
+        let env = ModalEnv::new("test-modal", "http://localhost", "test-token");
+        let res = env.destroy().await;
+        assert!(res.is_ok());
+    }
+}

@@ -86,6 +86,20 @@ mod tests {
             _ => panic!("Expected Assistant message"),
         }
     }
+
+    #[test]
+    fn test_context_engine_compress_edge_cases() {
+        let engine = ContextEngine::new(50);
+        let messages = vec![
+            Message::Assistant { content: None, tool_calls: Some(vec![]), reasoning_content: None },
+            Message::Assistant { content: Some("Content".to_string()), tool_calls: None, reasoning_content: None },
+        ];
+
+        let compressed = engine.compress(&messages);
+        
+        // Ensure both fit and the empty assistant message doesn't crash token count
+        assert_eq!(compressed.len(), 2);
+    }
 }
 
 // Rust guideline compliant 2026-02-21
