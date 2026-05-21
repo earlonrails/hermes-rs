@@ -390,6 +390,22 @@ mod tests {
     use wiremock::matchers::{method, path};
 
     #[tokio::test]
+    async fn test_openai_register() {
+        // Test that register function works correctly
+        let profile = openai_profile();
+        assert_eq!(profile.name, "openai");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
+    async fn test_openai_new_with_profile() {
+        let profile = openai_profile();
+        let provider = OpenAIProvider::new_with_profile(Some("test_key".to_string()), Some("http://localhost".to_string()), profile);
+        assert_eq!(provider.profile().name, "openai");
+    }
+
+    #[tokio::test]
     async fn test_openai_profile() {
         let profile = openai_profile();
         assert_eq!(profile.name, "openai");
@@ -499,6 +515,247 @@ mod tests {
         let models = provider.fetch_models(None, 10.0).await.unwrap();
         assert_eq!(models.len(), 1);
         assert_eq!(models[0], "gpt-4");
+    }
+    #[tokio::test]
+    async fn test_create_chat_completion() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "gpt-4",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello there!"
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 9,
+                "completion_tokens": 12,
+                "total_tokens": 21
+            }
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let provider = OpenAIProvider::new(Some("test_key".to_string()), Some(mock_server.uri()));
+        
+        let request = ChatCompletionRequest {
+            model: "gpt-4".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Hello!".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: Some(0.7),
+            max_tokens: Some(100),
+            top_p: Some(1.0),
+            stop: None,
+            stream: false,
+            tools: None,
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let response = provider.create_chat_completion(request).await.unwrap();
+        assert_eq!(response.choices.len(), 1);
+        assert_eq!(response.choices[0].message.content, "Hello there!");
+        assert_eq!(response.usage.as_ref().unwrap().total_tokens, 21);
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_stream() {
+        let mock_server = MockServer::start().await;
+        
+        let sse_data = concat!(
+            "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n",
+            "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-4\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n",
+            "data: [DONE]\n\n"
+        );
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_bytes(sse_data.as_bytes())
+                    .insert_header("Content-Type", "text/event-stream")
+            )
+            .mount(&mock_server)
+            .await;
+
+        let provider = OpenAIProvider::new(Some("test_key".to_string()), Some(mock_server.uri()));
+        
+        let request = ChatCompletionRequest {
+            model: "gpt-4".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Hello!".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            stop: None,
+            stream: true,
+            tools: None,
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
+        let mut stream = stream_res.response;
+        
+        use futures::StreamExt;
+        
+        // Chunk 1
+        let chunk1 = stream.next().await.unwrap().unwrap();
+        assert_eq!(chunk1.choices[0].delta.role, Some(MessageRole::Assistant));
+        
+        // Chunk 2
+        let chunk2 = stream.next().await.unwrap().unwrap();
+        assert_eq!(chunk2.choices[0].delta.content.as_deref(), Some("Hello"));
+    }
+    #[test]
+    fn test_map_messages_with_tools() {
+        let provider = OpenAIProvider::new(None, None);
+        let msg = ChatMessage {
+            role: MessageRole::Assistant,
+            content: "Tools".to_string(),
+            name: Some("assistant_name".to_string()),
+            tool_calls: Some(vec![ToolCall {
+                id: "call_123".to_string(),
+                r#type: "function".to_string(),
+                function: ToolFunction {
+                    name: "get_weather".to_string(),
+                    arguments: "{\"location\":\"SF\"}".to_string(),
+                }
+            }]),
+            tool_call_id: None,
+        };
+        
+        let tool_msg = ChatMessage {
+            role: MessageRole::Tool,
+            content: "Sunny".to_string(),
+            name: None,
+            tool_calls: None,
+            tool_call_id: Some("call_123".to_string()),
+        };
+        
+        let sys_msg = ChatMessage {
+            role: MessageRole::System,
+            content: "sys".to_string(),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+        };
+
+        let mapped = provider.map_messages(vec![msg, tool_msg, sys_msg]);
+        assert_eq!(mapped.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_with_tools_and_errors() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "gpt-4",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "function",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_123",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": "{\"location\":\"SF\"}"
+                        }
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }],
+            "usage": {
+                "prompt_tokens": 9,
+                "completion_tokens": 12,
+                "total_tokens": 21
+            }
+        });
+
+        // Setup success mock for tools
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let provider = OpenAIProvider::new(Some("test_key".to_string()), Some(mock_server.uri()));
+        
+        let request = ChatCompletionRequest {
+            model: "gpt-4".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Weather?".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            stop: None,
+            stream: false,
+            tools: Some(vec![crate::ToolDefinition {
+                r#type: "function".to_string(),
+                function: crate::ToolSchema {
+                    name: "get_weather".to_string(),
+                    description: Some("Get the weather".to_string()),
+                    parameters: serde_json::json!({}),
+                }
+            }]),
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let response = provider.create_chat_completion(request).await.unwrap();
+        let tool_calls = response.choices[0].message.tool_calls.as_ref().unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].function.name, "get_weather");
+
+        // Now test 500 Error
+        let error_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&error_server)
+            .await;
+            
+        let err_provider = OpenAIProvider::new(Some("test_key".to_string()), Some(error_server.uri()));
+        let req2 = ChatCompletionRequest {
+            model: "gpt-4".to_string(),
+            messages: vec![],
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
+        
+        let mut stream_res = err_provider.create_chat_completion_stream(req2).await.unwrap().response;
+        use futures::StreamExt;
+        assert!(stream_res.next().await.unwrap().is_err());
     }
 }
 

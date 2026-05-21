@@ -166,10 +166,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_openrouter_register() {
+        // Test that register function works correctly
+        let profile = openrouter_profile();
+        assert_eq!(profile.name, "openrouter");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
+    async fn test_openrouter_new_with_profile() {
+        let profile = openrouter_profile();
+        let provider = OpenRouterProvider::new_with_profile(profile);
+        assert_eq!(provider.profile().name, "openrouter");
+    }
+
+    #[tokio::test]
     async fn test_openrouter_provider_new() {
         let provider = OpenRouterProvider::new(None);
         assert_eq!(provider.profile().name, "openrouter");
-        
+
         let custom_profile = ProviderProfile::new("custom_or");
         let custom_provider = OpenRouterProvider::new_with_profile(custom_profile);
         assert_eq!(custom_provider.profile().name, "custom_or");

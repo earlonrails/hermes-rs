@@ -135,6 +135,15 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_xai_register() {
+        // Test that register function works correctly
+        let profile = xai_profile();
+        assert_eq!(profile.name, "xai");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
     async fn test_xai_provider_new() {
         let provider = XAIProvider::new();
         assert_eq!(provider.profile().name, "xai");

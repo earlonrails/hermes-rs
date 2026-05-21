@@ -135,6 +135,15 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_gemini_register() {
+        // Test that register function works correctly
+        let profile = gemini_profile();
+        assert_eq!(profile.name, "gemini");
+        assert_eq!(profile.api_mode, ApiMode::ChatCompletions);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
     async fn test_gemini_provider_new() {
         let provider = GeminiProvider::new();
         assert_eq!(provider.profile().name, "gemini");

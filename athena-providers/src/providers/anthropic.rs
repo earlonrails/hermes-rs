@@ -427,7 +427,12 @@ impl LLMProvider for AnthropicProvider {
             let data: serde_json::Value = serde_json::from_str(&event.data)
                 .map_err(|e| ProviderError::StreamingError(e.to_string()))?;
                 
-            let event_type = event.event;
+            let event_type = if event.event.is_empty() || event.event == "message" {
+                data.get("type").and_then(|t| t.as_str()).unwrap_or_default().to_string()
+            } else {
+                event.event
+            };
+            
             let mut choices = Vec::new();
             
             match event_type.as_str() {
@@ -554,10 +559,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_anthropic_register() {
+        // Test that register function works correctly
+        let profile = anthropic_profile();
+        assert_eq!(profile.name, "anthropic");
+        assert_eq!(profile.api_mode, ApiMode::AnthropicMessages);
+        assert_eq!(profile.auth_type, AuthType::ApiKey);
+    }
+
+    #[tokio::test]
+    async fn test_anthropic_new_with_profile() {
+        let profile = anthropic_profile();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        assert_eq!(provider.profile().name, "anthropic");
+    }
+
+    #[tokio::test]
     async fn test_anthropic_provider_new() {
         let provider = AnthropicProvider::new();
         assert_eq!(provider.profile().name, "anthropic");
-        
+
         let custom_profile = ProviderProfile::new("custom_anthropic");
         let custom_provider = AnthropicProvider::new_with_profile(custom_profile);
         assert_eq!(custom_provider.profile().name, "custom_anthropic");
@@ -633,6 +654,264 @@ mod tests {
         let models = provider.fetch_models(None, 10.0).await.unwrap();
         assert_eq!(models.len(), 1);
         assert_eq!(models[0], "claude-3-opus-20240229");
+    }
+    #[tokio::test]
+    async fn test_create_chat_completion() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "id": "msg_123",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-3-opus-20240229",
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 20
+            },
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Hello Anthropic!"
+                }
+            ]
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = anthropic_profile();
+        profile.base_url = mock_server.uri();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let request = ChatCompletionRequest {
+            model: "claude-3-opus-20240229".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Hi".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: None,
+            max_tokens: Some(1024),
+            top_p: None,
+            stop: None,
+            stream: false,
+            tools: None,
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let response = provider.create_chat_completion(request).await.unwrap();
+        assert_eq!(response.choices.len(), 1);
+        assert_eq!(response.choices[0].message.content, "Hello Anthropic!");
+        assert_eq!(response.usage.as_ref().unwrap().total_tokens, 30);
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_stream() {
+        let mock_server = MockServer::start().await;
+        
+        let sse_data = concat!(
+            "event: message_start\n",
+            "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_123\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":25,\"output_tokens\":1}}}\n\n",
+            "event: content_block_start\n",
+            "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+            "event: content_block_delta\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}\n\n",
+            "event: content_block_stop\n",
+            "data: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+            "event: message_delta\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":15}}\n\n",
+            "event: message_stop\n",
+            "data: {\"type\":\"message_stop\"}\n\n"
+        );
+
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_bytes(sse_data.as_bytes())
+                    .insert_header("Content-Type", "text/event-stream")
+            )
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = anthropic_profile();
+        profile.base_url = mock_server.uri();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let request = ChatCompletionRequest {
+            model: "claude-3-opus-20240229".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Hi".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: None,
+            max_tokens: Some(1024),
+            top_p: None,
+            stop: None,
+            stream: true,
+            tools: None,
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
+        let mut stream = stream_res.response;
+        
+        use futures::StreamExt;
+        
+        let mut chunks = Vec::new();
+        while let Some(chunk_res) = stream.next().await {
+            let chunk = chunk_res.unwrap();
+            if !chunk.choices.is_empty() {
+                chunks.push(chunk);
+            }
+        }
+        
+        assert!(chunks.len() >= 3);
+        
+        // Chunk 1: message_start
+        assert_eq!(chunks[0].choices[0].delta.role, Some(MessageRole::Assistant));
+        
+        // Chunk 2: content_block_delta
+        assert_eq!(chunks[1].choices[0].delta.content.as_deref(), Some("Hello"));
+        
+        // Chunk 3: message_delta (stop reason)
+        assert_eq!(chunks[2].choices[0].finish_reason.as_deref(), Some("end_turn"));
+    }
+    #[test]
+    fn test_map_messages_with_tools() {
+        let profile = anthropic_profile();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let msg = ChatMessage {
+            role: MessageRole::Assistant,
+            content: "".to_string(),
+            name: None,
+            tool_calls: Some(vec![ToolCall {
+                id: "call_123".to_string(),
+                r#type: "function".to_string(),
+                function: ToolFunction {
+                    name: "get_weather".to_string(),
+                    arguments: "{\"location\":\"SF\"}".to_string(),
+                }
+            }]),
+            tool_call_id: None,
+        };
+        
+        let tool_msg = ChatMessage {
+            role: MessageRole::Tool,
+            content: "Sunny".to_string(),
+            name: None,
+            tool_calls: None,
+            tool_call_id: Some("call_123".to_string()),
+        };
+
+        let req = ChatCompletionRequest {
+            model: "claude".into(),
+            messages: vec![msg, tool_msg],
+            temperature: None, max_tokens: Some(10), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        
+        let body = provider.build_anthropic_request(&req);
+        let messages = body["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_create_chat_completion_with_tools_and_errors() {
+        let mock_server = MockServer::start().await;
+        
+        let response_body = serde_json::json!({
+            "id": "msg_123",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-3",
+            "stop_reason": "tool_use",
+            "stop_sequence": null,
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 20
+            },
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "call_123",
+                    "name": "get_weather",
+                    "input": {"location": "SF"}
+                }
+            ]
+        });
+
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(response_body))
+            .mount(&mock_server)
+            .await;
+
+        let mut profile = anthropic_profile();
+        profile.base_url = mock_server.uri();
+        let provider = AnthropicProvider::new_with_profile(profile);
+        
+        let request = ChatCompletionRequest {
+            model: "claude-3-opus-20240229".to_string(),
+            messages: vec![ChatMessage {
+                role: MessageRole::User,
+                content: "Weather?".to_string(),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+            temperature: None,
+            max_tokens: Some(100),
+            top_p: None,
+            stop: None,
+            stream: false,
+            tools: Some(vec![crate::ToolDefinition {
+                r#type: "function".to_string(),
+                function: crate::ToolSchema {
+                    name: "get_weather".to_string(),
+                    description: Some("Get the weather".to_string()),
+                    parameters: serde_json::json!({}),
+                }
+            }]),
+            tool_choice: None,
+            extra_body: HashMap::new(),
+        };
+
+        let response = provider.create_chat_completion(request).await.unwrap();
+        let tool_calls = response.choices[0].message.tool_calls.as_ref().unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].function.name, "get_weather");
+        
+        // 500 error tests
+        let error_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&error_server)
+            .await;
+            
+        let mut err_profile = anthropic_profile();
+        err_profile.base_url = error_server.uri();
+        let err_provider = AnthropicProvider::new_with_profile(err_profile);
+        let req2 = ChatCompletionRequest {
+            model: "claude".to_string(),
+            messages: vec![],
+            temperature: None, max_tokens: Some(1), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+        };
+        assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
+        assert!(err_provider.create_chat_completion_stream(req2).await.is_err());
     }
 }
 

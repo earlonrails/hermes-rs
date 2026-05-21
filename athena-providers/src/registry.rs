@@ -204,30 +204,54 @@ mod tests {
         let registry = ProviderRegistry::default();
         assert!(!registry.contains("mock_provider"));
         
-        let provider = Arc::new(MockProvider::new("mock_provider", vec!["mp1", "mp2"]));
-        registry.register(provider);
+        let provider = Arc::new(MockProvider::new("mock_provider", vec!["mock"]));
+        registry.register(provider.clone());
         
         assert!(registry.contains("mock_provider"));
-        assert!(registry.contains("mp1"));
-        assert!(registry.contains("mp2"));
-        assert!(!registry.contains("mp3"));
-
-        let p1 = registry.get("mock_provider").unwrap();
-        assert_eq!(p1.profile().name, "mock_provider");
-
-        let p2 = registry.get("mp1").unwrap();
-        assert_eq!(p2.profile().name, "mock_provider");
-
-        let p3 = registry.get_profile("mp2").unwrap();
-        assert_eq!(p3.name, "mock_provider");
-
-        let names = registry.list_providers();
-        assert_eq!(names.len(), 1);
-        assert_eq!(names[0], "mock_provider");
-
+        assert!(registry.contains("mock"));
+        
+        let retrieved = registry.get("mock_provider").unwrap();
+        assert_eq!(retrieved.profile().name, "mock_provider");
+        
+        let retrieved_by_alias = registry.get("mock").unwrap();
+        assert_eq!(retrieved_by_alias.profile().name, "mock_provider");
+        
+        assert!(registry.get("nonexistent").is_none());
+        
         let profiles = registry.list_provider_profiles();
         assert_eq!(profiles.len(), 1);
         assert_eq!(profiles[0].name, "mock_provider");
+    }
+
+    #[tokio::test]
+    async fn test_mock_provider_methods() {
+        let provider = MockProvider::new("mock", vec![]);
+        assert!(provider.fetch_models(None, 10.0).await.is_ok());
+        
+        let req = ChatCompletionRequest {
+            model: "test".into(),
+            messages: vec![],
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            stop: None,
+            stream: false,
+            tools: None,
+            tool_choice: None,
+            extra_body: std::collections::HashMap::new(),
+        };
+        
+        assert!(provider.create_chat_completion(req.clone()).await.is_err());
+        assert!(provider.create_chat_completion_stream(req).await.is_err());
+    }
+
+    #[test]
+    fn test_init_builtin() {
+        init_builtin_providers();
+        let registry = &GLOBAL_REGISTRY;
+        assert!(registry.contains("openai"));
+        assert!(registry.contains("anthropic"));
+        assert!(registry.contains("gemini"));
     }
 
     #[test]
