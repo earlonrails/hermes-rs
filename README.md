@@ -1,5 +1,8 @@
 # Athena 🦉
 
+[![CI](https://github.com/earlonrails/athena/actions/workflows/ci.yml/badge.svg)](https://github.com/earlonrails/athena/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/earlonrails/athena/graph/badge.svg?token=YOURTOKEN)](https://codecov.io/gh/earlonrails/athena)
+
 A blazing fast, memory-safe, and highly concurrent Rust port of the Hermes Agent framework.
 
 Athena provides a robust foundation for building advanced, tool-capable AI agents with an emphasis on safe execution, extensibility, and extreme performance.
