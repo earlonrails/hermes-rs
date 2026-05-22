@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_sessions() {
-    println!("\nHermes Sessions History");
+    println!("\nAthena Sessions History");
     println!("═════════════════════════\n");
     println!("List, rename, export, delete, or prune past conversation histories.");
     println!();
 
-    let sessions_dir = get_hermes_home().join("sessions");
+    let sessions_dir = get_athena_home().join("sessions");
     if !sessions_dir.exists() {
         let _ = fs::create_dir_all(&sessions_dir);
     }

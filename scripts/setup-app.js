@@ -116,7 +116,7 @@ const data = {
       input: "athena dashboard",
       description: "Launch the local premium glassmorphic agent monitoring dashboard.",
       output: [
-        "Hermes Web GUI Dashboard",
+        "Athena Web GUI Dashboard",
         "══════════════════════════",
         "Launching local dashboard at http://localhost:8000...",
         "Press Ctrl+C to stop.",

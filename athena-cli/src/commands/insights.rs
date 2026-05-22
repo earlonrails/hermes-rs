@@ -1,13 +1,13 @@
 use std::fs;
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_insights() {
-    println!("\nHermes Usage Insights & Analytics");
+    println!("\nAthena Usage Insights & Analytics");
     println!("═══════════════════════════════════\n");
     println!("Token consumption estimates, file metrics, and cost details.");
     println!();
 
-    let sessions_dir = get_hermes_home().join("sessions");
+    let sessions_dir = get_athena_home().join("sessions");
     let mut sessions_count = 0;
     let mut total_session_size = 0;
     if let Ok(entries) = fs::read_dir(&sessions_dir) {
@@ -22,7 +22,7 @@ pub fn run_insights() {
         }
     }
 
-    let log_dir = get_hermes_home().join("logs");
+    let log_dir = get_athena_home().join("logs");
     let mut log_size = 0;
     if let Ok(entries) = fs::read_dir(&log_dir) {
         for entry in entries.flatten() {

@@ -1,9 +1,9 @@
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 use athena_core::config::{load_config, get_env_value};
 
 pub fn run_dump() {
     let version = env!("CARGO_PKG_VERSION");
-    let home = get_hermes_home();
+    let home = get_athena_home();
     let config = load_config();
 
     let providers = [
@@ -17,13 +17,13 @@ pub fn run_dump() {
         ("XAI_API_KEY", "xAI"),
     ];
 
-    println!("### Hermes Agent Support Dump");
+    println!("### Athena Agent Support Dump");
     println!("- **Version**: `v{}`", version);
     println!("- **OS Platform**: `{}`", std::env::consts::OS);
     println!("- **Architecture**: `{}`", std::env::consts::ARCH);
     println!("- **Home Directory**: `{}`", home.display());
     println!("- **Default Model**: `{}`", config.model.default);
-    
+
     println!("\n#### Active Credentials:");
     for (env_var, label) in providers {
         let configured = get_env_value(env_var).is_some();

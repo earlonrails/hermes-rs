@@ -1,80 +1,59 @@
 use athena_core::config::{load_config, save_config, get_env_value};
-use std::io::{self, Write};
+use cliclack::{intro, outro, outro_cancel, select, input, password, confirm, note};
+use anyhow::Result;
 
-/// Interactive setup wizard — walks the user through initial configuration.
-pub fn run_setup() {
-    println!();
-    println!("⚕ Hermes Setup Wizard");
-    println!("═══════════════════════");
-    println!();
+pub fn run_setup() -> Result<()> {
+    intro("⚕ Athena Setup Wizard")?;
 
-    let hermes_home = athena_core::paths::display_hermes_home();
-    println!("  Hermes home: {}", hermes_home);
-    println!();
+    let athena_home = athena_core::paths::display_athena_home();
+    note("Athena home", &athena_home)?;
 
     let mut config = load_config();
 
-    // Section 1: Model & Provider
-    setup_model_provider(&mut config);
+    setup_model_provider(&mut config)?;
+    setup_terminal_backend(&mut config)?;
+    setup_agent_settings(&mut config)?;
+    setup_gateway(&mut config)?;
 
-    // Section 2: Terminal backend
-    setup_terminal_backend(&mut config);
-
-    // Section 3: Agent settings
-    setup_agent_settings(&mut config);
-
-    // Section 4: Gateway (messaging platforms)
-    setup_gateway(&mut config);
-
-    // Save
     match save_config(&config) {
         Ok(()) => {
-            println!();
-            println!("✓ Configuration saved to {}/config.yaml", hermes_home);
+            outro(format!("✓ Configuration saved to {}/config.yaml", athena_home))?;
         }
         Err(e) => {
-            eprintln!("✗ Failed to save config: {}", e);
+            outro_cancel(format!("✗ Failed to save config: {}", e))?;
         }
     }
 
-    print_setup_summary(&config);
+    Ok(())
 }
 
-fn setup_model_provider(config: &mut athena_core::config::HermesConfig) {
-    println!("─── Model & Provider ───────────────────────────────");
-    println!();
-
+fn setup_model_provider(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
     let providers = [
-        ("openai",      "OpenAI (GPT-4o, o1, o3, ...)"),
-        ("anthropic",   "Anthropic (Claude 4, Opus, Sonnet, ...)"),
-        ("openrouter",  "OpenRouter (access many providers)"),
-        ("google",      "Google (Gemini)"),
-        ("deepseek",    "DeepSeek"),
-        ("groq",        "Groq"),
-        ("mistral",     "Mistral AI"),
-        ("xai",         "xAI (Grok)"),
-        ("local",       "Local / Custom endpoint"),
+        ("openai", "OpenAI", "GPT-4o, o1, o3, ..."),
+        ("anthropic", "Anthropic", "Claude 4, Opus, Sonnet, ..."),
+        ("openrouter", "OpenRouter", "Access many providers"),
+        ("google", "Google", "Gemini"),
+        ("deepseek", "DeepSeek", ""),
+        ("groq", "Groq", ""),
+        ("mistral", "Mistral AI", ""),
+        ("xai", "xAI", "Grok"),
+        ("local", "Local", "Custom endpoint"),
     ];
 
-    println!("  Select your inference provider:");
-    for (i, (_, label)) in providers.iter().enumerate() {
-        let marker = if !config.model.provider.is_empty()
-            && config.model.provider == providers[i].0
-        {
-            " ←"
-        } else {
-            ""
-        };
-        println!("    {}. {}{}", i + 1, label, marker);
+    let mut select_prompt = select("Select your inference provider");
+    for (slug, label, hint) in providers.iter() {
+        select_prompt = select_prompt.item(*slug, *label, *hint);
     }
-    println!();
+    
+    if !config.model.provider.is_empty() {
+        select_prompt = select_prompt.initial_value(config.model.provider.as_str());
+    }
+    
+    let slug: String = select_prompt.interact()?.to_string();
+    config.model.provider = slug.clone();
 
-    let choice = prompt_number("  Choice", 1, providers.len());
-    let (slug, _label) = providers[choice - 1];
-    config.model.provider = slug.to_string();
-
-    // Prompt for API key
-    let env_key = match slug {
+    // API Key
+    let env_key = match slug.as_str() {
         "openai" => "OPENAI_API_KEY",
         "anthropic" => "ANTHROPIC_API_KEY",
         "openrouter" => "OPENROUTER_API_KEY",
@@ -83,41 +62,36 @@ fn setup_model_provider(config: &mut athena_core::config::HermesConfig) {
         "groq" => "GROQ_API_KEY",
         "mistral" => "MISTRAL_API_KEY",
         "xai" => "XAI_API_KEY",
-        "local" => "",
         _ => "",
     };
 
     if !env_key.is_empty() {
         let current = get_env_value(env_key);
-        if let Some(ref val) = current {
-            let masked = mask_key(val);
-            println!("  Current API key: {}", masked);
-            print!("  Update? [y/N] ");
-            io::stdout().flush().ok();
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).ok();
-            if input.trim().to_lowercase() != "y" {
-                println!("  ✓ Keeping existing key");
-            } else {
-                prompt_and_save_key(env_key);
+        if current.is_some() {
+            let update: bool = confirm(format!("Current {} exists. Update it?", env_key)).interact()?;
+            if update {
+                let key: String = password(format!("Enter {} (will be masked)", env_key)).interact()?;
+                if !key.is_empty() {
+                    let _ = athena_core::config::save_env_value(env_key, &key);
+                }
             }
         } else {
-            prompt_and_save_key(env_key);
+            let key: String = password(format!("Enter {} (will be masked)", env_key)).interact()?;
+            if !key.is_empty() {
+                let _ = athena_core::config::save_env_value(env_key, &key);
+            }
         }
     } else if slug == "local" {
-        print!("  Base URL (e.g. http://localhost:11434/v1): ");
-        io::stdout().flush().ok();
-        let mut url = String::new();
-        io::stdin().read_line(&mut url).ok();
-        let url = url.trim();
+        let url: String = input("Base URL")
+            .placeholder("http://localhost:11434/v1")
+            .interact()?;
         if !url.is_empty() {
-            let _ = athena_core::config::save_env_value("OPENAI_BASE_URL", url);
-            println!("  ✓ Base URL saved");
+            let _ = athena_core::config::save_env_value("OPENAI_BASE_URL", &url);
         }
     }
 
-    // Prompt for default model
-    let default_model = match slug {
+    // Default model
+    let default_model = match slug.as_str() {
         "openai" => "gpt-4o",
         "anthropic" => "claude-sonnet-4-20250514",
         "openrouter" => "openai/gpt-4o",
@@ -129,145 +103,75 @@ fn setup_model_provider(config: &mut athena_core::config::HermesConfig) {
         _ => "gpt-4o",
     };
 
-    print!("  Default model [{}]: ", default_model);
-    io::stdout().flush().ok();
-    let mut model_input = String::new();
-    io::stdin().read_line(&mut model_input).ok();
-    let model_input = model_input.trim();
+    let model_input: String = input("Default model")
+        .default_input(default_model)
+        .interact()?;
+    
     config.model.default = if model_input.is_empty() {
         default_model.to_string()
     } else {
-        model_input.to_string()
+        model_input
     };
 
-    println!("  ✓ Provider: {}, Model: {}", slug, config.model.default);
-    println!();
+    Ok(())
 }
 
-fn setup_terminal_backend(config: &mut athena_core::config::HermesConfig) {
-    println!("─── Terminal Backend ───────────────────────────────");
-    println!();
-
-    let backends = ["local", "docker", "ssh", "modal"];
-    println!("  Where should Hermes run terminal commands?");
-    for (i, b) in backends.iter().enumerate() {
-        let marker = if config.terminal_backend == *b { " ←" } else { "" };
-        println!("    {}. {}{}", i + 1, b, marker);
+fn setup_terminal_backend(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
+    let mut select_prompt = select("Where should Athena run terminal commands?")
+        .item("local", "Local", "Run directly on your machine")
+        .item("docker", "Docker", "Run in an isolated container")
+        .item("ssh", "SSH", "Run on a remote server")
+        .item("modal", "Modal", "Run in Modal cloud");
+        
+    if !config.terminal_backend.is_empty() {
+        select_prompt = select_prompt.initial_value(config.terminal_backend.as_str());
     }
-    println!();
-
-    let choice = prompt_number("  Choice", 1, backends.len());
-    config.terminal_backend = backends[choice - 1].to_string();
-    println!("  ✓ Terminal backend: {}", config.terminal_backend);
-    println!();
+        
+    let backend: String = select_prompt.interact()?.to_string();
+    config.terminal_backend = backend;
+    Ok(())
 }
 
-fn setup_agent_settings(config: &mut athena_core::config::HermesConfig) {
-    println!("─── Agent Settings ────────────────────────────────");
-    println!();
-
-    print!("  Max iterations per turn [{}]: ", config.agent.max_iterations);
-    io::stdout().flush().ok();
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).ok();
-    let input = input.trim();
-    if !input.is_empty() {
-        if let Ok(n) = input.parse::<u32>() {
-            config.agent.max_iterations = n;
-        }
+fn setup_agent_settings(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
+    let max_iter: String = input("Max iterations per turn")
+        .default_input(&config.agent.max_iterations.to_string())
+        .interact()?;
+        
+    if let Ok(n) = max_iter.parse::<u32>() {
+        config.agent.max_iterations = n;
     }
-
-    println!("  ✓ Max iterations: {}", config.agent.max_iterations);
-    println!();
+    
+    Ok(())
 }
 
-fn setup_gateway(config: &mut athena_core::config::HermesConfig) {
-    println!("─── Messaging Platforms ────────────────────────────");
-    println!();
-
-    // Telegram
-    print!("  Enable Telegram? [y/N]: ");
-    io::stdout().flush().ok();
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).ok();
-    if input.trim().to_lowercase() == "y" {
-        config.gateway.telegram_enabled = true;
+fn setup_gateway(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
+    let enable_telegram: bool = confirm("Enable Telegram?").initial_value(config.gateway.telegram_enabled).interact()?;
+    config.gateway.telegram_enabled = enable_telegram;
+    
+    if enable_telegram {
         if get_env_value("TELEGRAM_BOT_TOKEN").is_none() {
-            prompt_and_save_key("TELEGRAM_BOT_TOKEN");
+            let key: String = password("TELEGRAM_BOT_TOKEN").interact()?;
+            if !key.is_empty() {
+                let _ = athena_core::config::save_env_value("TELEGRAM_BOT_TOKEN", &key);
+            }
         } else {
-            println!("  ✓ Telegram token already configured");
+            note("Telegram", "Token already configured")?;
         }
     }
 
-    // Discord
-    print!("  Enable Discord? [y/N]: ");
-    io::stdout().flush().ok();
-    input.clear();
-    io::stdin().read_line(&mut input).ok();
-    if input.trim().to_lowercase() == "y" {
-        config.gateway.discord_enabled = true;
+    let enable_discord: bool = confirm("Enable Discord?").initial_value(config.gateway.discord_enabled).interact()?;
+    config.gateway.discord_enabled = enable_discord;
+    
+    if enable_discord {
         if get_env_value("DISCORD_BOT_TOKEN").is_none() {
-            prompt_and_save_key("DISCORD_BOT_TOKEN");
+            let key: String = password("DISCORD_BOT_TOKEN").interact()?;
+            if !key.is_empty() {
+                let _ = athena_core::config::save_env_value("DISCORD_BOT_TOKEN", &key);
+            }
         } else {
-            println!("  ✓ Discord token already configured");
+            note("Discord", "Token already configured")?;
         }
     }
 
-    println!();
-}
-
-fn print_setup_summary(config: &athena_core::config::HermesConfig) {
-    println!();
-    println!("═══════════════════════════════════════════════════");
-    println!("  Setup Summary");
-    println!("═══════════════════════════════════════════════════");
-    println!("  Provider:         {}", config.model.provider);
-    println!("  Model:            {}", config.model.default);
-    println!("  Terminal:         {}", config.terminal_backend);
-    println!("  Max iterations:   {}", config.agent.max_iterations);
-    println!("  Telegram:         {}", if config.gateway.telegram_enabled { "enabled" } else { "disabled" });
-    println!("  Discord:          {}", if config.gateway.discord_enabled { "enabled" } else { "disabled" });
-    println!("═══════════════════════════════════════════════════");
-    println!();
-    println!("  You're all set! Run 'hermes' or 'hermes chat' to start.");
-    println!();
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-fn prompt_number(label: &str, min: usize, max: usize) -> usize {
-    loop {
-        print!("{} [{}-{}]: ", label, min, max);
-        io::stdout().flush().ok();
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).ok();
-        match input.trim().parse::<usize>() {
-            Ok(n) if n >= min && n <= max => return n,
-            _ => println!("  Please enter a number between {} and {}", min, max),
-        }
-    }
-}
-
-fn prompt_and_save_key(env_key: &str) {
-    print!("  {}: ", env_key);
-    io::stdout().flush().ok();
-    let mut key = String::new();
-    io::stdin().read_line(&mut key).ok();
-    let key = key.trim();
-    if !key.is_empty() {
-        match athena_core::config::save_env_value(env_key, key) {
-            Ok(()) => println!("  ✓ Saved {}", env_key),
-            Err(e) => eprintln!("  ✗ Failed to save: {}", e),
-        }
-    } else {
-        println!("  Skipped");
-    }
-}
-
-fn mask_key(key: &str) -> String {
-    if key.len() <= 8 {
-        "****".to_string()
-    } else {
-        format!("{}…{}", &key[..4], &key[key.len()-4..])
-    }
+    Ok(())
 }

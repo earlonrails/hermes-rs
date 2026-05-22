@@ -2,13 +2,13 @@ use std::process::{Command, Stdio};
 use std::io::{self, Write};
 
 pub fn run_cron() {
-    println!("\nHermes Cron Job Scheduler");
+    println!("\nAthena Cron Job Scheduler");
     println!("═══════════════════════════\n");
     println!("This utility manages periodic background agent queries via the system crontab.");
     println!();
-    println!("  1. List active Hermes cron jobs");
+    println!("  1. List active Athena cron jobs");
     println!("  2. Add a new scheduled query");
-    println!("  3. Remove all Hermes cron jobs");
+    println!("  3. Remove all Athena cron jobs");
     println!("  4. Exit");
     println!();
 
@@ -21,7 +21,7 @@ pub fn run_cron() {
 
     match choice {
         1 => {
-            println!("\nActive crontab entries for Hermes:");
+            println!("\nActive crontab entries for Athena:");
             let output = Command::new("crontab")
                 .arg("-l")
                 .output();
@@ -33,15 +33,15 @@ pub fn run_cron() {
                         println!("  (No crontab exists for the current user)");
                     } else if out.status.success() {
                         let stdout = String::from_utf8_lossy(&out.stdout);
-                        let hermes_jobs: Vec<&str> = stdout
+                        let athena_jobs: Vec<&str> = stdout
                             .lines()
-                            .filter(|line| line.contains("hermes"))
+                            .filter(|line| line.contains("athena"))
                             .collect();
 
-                        if hermes_jobs.is_empty() {
-                            println!("  No active Hermes cron jobs found.");
+                        if athena_jobs.is_empty() {
+                            println!("  No active Athena cron jobs found.");
                         } else {
-                            for job in hermes_jobs {
+                            for job in athena_jobs {
                                 println!("  • {}", job);
                             }
                         }
@@ -85,13 +85,13 @@ pub fn run_cron() {
                 }
             }
 
-            // Path to hermes binary
+            // Path to Athena binary
             let exe_path = std::env::current_exe()
-                .unwrap_or_else(|_| std::path::PathBuf::from("hermes"));
+                .unwrap_or_else(|_| std::path::PathBuf::from("athena"));
 
             // Build the cron line:
             let new_job = format!(
-                "{} {} query \"{}\" >> ~/.hermes/logs/cron.log 2>&1\n",
+                "{} {} query \"{}\" >> ~/.athena/logs/cron.log 2>&1\n",
                 schedule,
                 exe_path.display(),
                 query
@@ -127,7 +127,7 @@ pub fn run_cron() {
             }
         }
         3 => {
-            print!("\nAre you sure you want to remove ALL scheduled Hermes cron jobs? [y/N]: ");
+            print!("\nAre you sure you want to remove ALL scheduled Athena cron jobs? [y/N]: ");
             io::stdout().flush().ok();
             let mut confirm = String::new();
             io::stdin().read_line(&mut confirm).ok();
@@ -144,10 +144,10 @@ pub fn run_cron() {
                 }
             }
 
-            // Filter out lines containing hermes
+            // Filter out lines containing Athena
             let filtered_lines: Vec<&str> = current_cron
                 .lines()
-                .filter(|line| !line.contains("hermes"))
+                .filter(|line| !line.contains("athena"))
                 .collect();
 
             let mut new_cron = filtered_lines.join("\n");
@@ -170,7 +170,7 @@ pub fn run_cron() {
                     match c.wait_with_output() {
                         Ok(out) => {
                             if out.status.success() {
-                                println!("  ✓ All Hermes cron jobs have been removed.");
+                                println!("  ✓ All Athena cron jobs have been removed.");
                             } else {
                                 println!("  ✗ Failed to clear crontab: {}", String::from_utf8_lossy(&out.stderr).trim());
                             }

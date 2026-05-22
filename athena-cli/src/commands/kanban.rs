@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct KanbanBoard {
@@ -17,12 +17,12 @@ struct TaskItem {
 }
 
 pub fn run_kanban() {
-    println!("\nHermes Collaboration Kanban Board");
+    println!("\nAthena Collaboration Kanban Board");
     println!("═══════════════════════════════════\n");
     println!("View, assign, and transition multi-agent tasks.");
     println!();
 
-    let kanban_file = get_hermes_home().join("kanban.json");
+    let kanban_file = get_athena_home().join("kanban.json");
     let mut board = if kanban_file.exists() {
         let content = fs::read_to_string(&kanban_file).unwrap_or_default();
         serde_json::from_str::<KanbanBoard>(&content).unwrap_or_default()

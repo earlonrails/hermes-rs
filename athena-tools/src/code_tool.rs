@@ -42,8 +42,8 @@ impl Tool for CodeExecutionTool {
 
         // Create a temporary file
         let mut temp_dir = env::temp_dir();
-        temp_dir.push(format!("hermes_code_eval_{}.{}", uuid::Uuid::new_v4(), ext));
-        
+        temp_dir.push(format!("athena_code_eval_{}.{}", uuid::Uuid::new_v4(), ext));
+
         if let Err(e) = fs::write(&temp_dir, code).await {
             return Ok(json!({ "error": format!("Failed to write code to temp file: {}", e) }));
         }
@@ -92,10 +92,10 @@ mod tests {
 
         let result = tool.handle(json!({})).await.unwrap();
         assert_eq!(result["error"], "Missing or invalid 'language' argument");
-        
+
         let result = tool.handle(json!({"language": "python"})).await.unwrap();
         assert_eq!(result["error"], "Missing or invalid 'code' argument");
-        
+
         let result = tool.handle(json!({"language": "unknown", "code": "print()"})).await.unwrap();
         assert_eq!(result["error"], "Unsupported language");
     }

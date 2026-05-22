@@ -12,49 +12,49 @@ use std::path::PathBuf;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Provide a custom workspace path
-    #[arg(short, long)]
+    #[arg(short = 'W', long)]
     workspace: Option<PathBuf>,
-    
+
     /// Model to use (default: gpt-4o)
     #[arg(long, short = 'm')]
     model: Option<String>,
-    
+
     /// API key for authentication
     #[arg(long)]
     api_key: Option<String>,
-    
+
     /// Base URL for the API
     #[arg(long)]
     base_url: Option<String>,
-    
+
     /// Maximum tool-calling iterations (default: 20)
     #[arg(long)]
     max_turns: Option<u32>,
-    
+
     /// One-shot mode: send a single prompt and print ONLY the final response text to stdout
     #[arg(long, short = 'z')]
     oneshot: Option<String>,
-    
+
     /// Comma-separated toolsets to enable for this invocation
     #[arg(long, short = 't')]
     toolsets: Option<String>,
-    
+
     /// Preload one or more skills for the session
     #[arg(long, short = 's')]
     skills: Option<String>,
-    
+
     /// Resume a previous session by ID or title
     #[arg(long, short = 'r')]
     resume: Option<String>,
-    
+
     /// Resume a session by name, or the most recent if no name given
     #[arg(long, short = 'c')]
     continue_session: Option<Option<String>>,
-    
+
     /// Run in an isolated git worktree (for parallel agents)
     #[arg(long, short = 'w')]
     worktree: bool,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -63,156 +63,216 @@ struct Args {
 enum Commands {
     /// Interactive chat with the agent
     Chat,
-    
+
     /// Select default model and provider
     Model,
-    
+
     /// Manage fallback providers (tried when the primary model fails)
     Fallback,
-    
+
     /// Messaging gateway management
     Gateway,
-    
+
     /// Language Server Protocol management
     Lsp,
-    
+
     /// Interactive setup wizard
     Setup,
-    
+
     /// Set up WhatsApp integration
     Whatsapp,
-    
+
     /// Slack integration helpers (manifest generation, etc.)
     Slack,
-    
+
     /// Authenticate with an inference provider
     Login,
-    
+
     /// Clear authentication for an inference provider
     Logout,
-    
+
     /// Manage pooled provider credentials
     Auth,
-    
+
     /// Show status of all components
     Status,
-    
+
     /// Cron job management
     Cron,
-    
+
     /// Manage dynamic webhook subscriptions
     Webhook,
-    
+
     /// Multi-profile collaboration board (tasks, links, comments)
     Kanban,
-    
+
     /// Inspect and manage shell-script hooks
     Hooks,
-    
+
     /// Check configuration and dependencies
     Doctor,
-    
+
     /// Dump setup summary for support/debugging
     Dump,
-    
+
     /// Debug tools — upload logs and system info for support
     Debug,
-    
-    /// Back up Hermes home directory to a zip file
+
+    /// Back up Athena home directory to a zip file
     Backup,
-    
-    /// Inspect / prune / clear ~/.hermes/checkpoints/
+
+    /// Inspect / prune / clear ~/.athena/checkpoints/
     Checkpoints,
-    
-    /// Restore a Hermes backup from a zip file
+
+    /// Restore a Athena backup from a zip file
     Import,
-    
+
     /// View and edit configuration
     Config,
-    
+
     /// Manage DM pairing codes for user authorization
     Pairing,
-    
+
     /// Search, install, configure, and manage skills
     Skills,
-    
+
     /// Manage plugins — install, update, remove, list
     Plugins,
-    
+
     /// Background skill maintenance (curator) — status, run, pause, pin
     Curator,
-    
+
     /// Configure external memory provider
     Memory,
-    
+
     /// Configure which tools are enabled per platform
     Tools,
-    
+
     /// Manage the Computer Use (cua-driver) backend (macOS)
     ComputerUse,
-    
-    /// Manage MCP servers and run Hermes as an MCP server
-    Mcp,
-    
+
+    /// Manage MCP servers and run Athena as an MCP server
+    Mcp {
+        #[arg(long)]
+        serve: bool,
+    },
+
     /// Manage session history (list, rename, export, prune, delete)
     Sessions,
-    
+
     /// Show usage insights and analytics
     Insights,
-    
+
     /// OpenClaw migration tools
     Claw,
-    
+
     /// Show version information
     Version,
-    
-    /// Update Hermes Agent to the latest version
+
+    /// Update Athena to the latest version
     Update,
-    
-    /// Uninstall Hermes Agent
+
+    /// Uninstall Athena
     Uninstall,
-    
-    /// Run Hermes Agent as an ACP (Agent Client Protocol) server
+
+    /// Run Athena as an ACP (Agent Client Protocol) server
     Acp,
-    
-    /// Manage profiles — multiple isolated Hermes instances
+
+    /// Manage profiles — multiple isolated Athena instances
     Profile,
-    
+
     /// Print shell completion script (bash, zsh, or fish)
     Completion,
-    
+
     /// Start the web UI dashboard
     Dashboard,
-    
-    /// View and filter Hermes log files
+
+    /// View and filter Athena log files
     Logs,
-    
+
     /// Run a single query
     #[command(alias = "q")]
     Query {
         /// The query to run
         query: String,
-        
+
         /// Comma-separated list of toolsets to enable
         #[arg(long, short = 't')]
         toolsets: Option<String>,
-        
+
         /// Comma-separated list of skills to preload
         #[arg(long, short = 's')]
         skills: Option<String>,
     },
-    
+
     /// List available tools
     ListTools,
-    
+
     /// List available toolsets
     ListToolsets,
-    
+
     /// Show configuration
     ConfigShow,
+
+
+}
+
+pub(crate) fn create_agent_builder(config: &athena_core::config::AthenaConfig, args: &Args) -> (athena_agent::AIAgentBuilder, std::sync::Arc<dyn athena_providers::LLMProvider + Send + Sync>) {
+    let mut builder = AIAgent::builder();
+
+    // Set model if provided globally
+    if let Some(model) = &args.model {
+        builder = builder.model(model);
+    } else {
+        if !config.model.default.is_empty() {
+            builder = builder.model(&config.model.default);
+        } else {
+            builder = builder.model("gpt-4o");
+        }
+    }
+
+    // Set max iterations if provided globally
+    if let Some(max_turns) = args.max_turns {
+        builder = builder.max_iterations(max_turns as usize);
+    } else {
+        builder = builder.max_iterations(20);
+    }
+
+    // Initialize provider registry
+    athena_providers::registry::init_builtin_providers();
+    let provider_slug = if config.model.provider.is_empty() { "openai" } else { &config.model.provider };
     
-    /// Show help
-    Help,
+    // Resolve API Key and Base URL using the provider registry
+    let mut resolved_api_key = args.api_key.clone().or_else(|| std::env::var("OPENAI_API_KEY").ok());
+    let mut resolved_base_url = args.base_url.clone();
+    
+    if let Some(profile) = athena_providers::registry::get_provider_profile(provider_slug) {
+        if resolved_base_url.is_none() {
+            resolved_base_url = Some(profile.base_url.clone());
+        }
+        
+        if resolved_api_key.is_none() {
+            for env_var in &profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_api_key = Some(val);
+                    break;
+                }
+            }
+        }
+    }
+
+    if let Some(k) = resolved_api_key {
+        builder = builder.api_key(k);
+    }
+
+    if let Some(url) = resolved_base_url {
+        builder = builder.base_url(url);
+    }
+
+    let provider = athena_providers::registry::get_provider(provider_slug)
+        .unwrap_or_else(|| athena_providers::registry::get_provider("openai").unwrap());
+
+    (builder, provider)
 }
 
 #[tokio::main]
@@ -228,60 +288,33 @@ async fn main() {
         ..Default::default()
     });
 
+    // Load default config
+    let config = athena_core::config::load_config();
+
     // Initialize agent builder with global options
-    let mut builder = AIAgent::builder();
-    
-    // Set model if provided globally
-    if let Some(model) = &args.model {
-        builder = builder.model(model);
-    } else {
-        // Load default model from config
-        let cfg = athena_core::config::load_config();
-        if !cfg.model.default.is_empty() {
-            builder = builder.model(&cfg.model.default);
-        } else {
-            builder = builder.model("gpt-4o");
-        }
-    }
-    
-    // Set max iterations if provided globally
-    if let Some(max_turns) = args.max_turns {
-        builder = builder.max_iterations(max_turns as usize);
-    } else {
-        builder = builder.max_iterations(20);
-    }
-    
-    // Set API key if provided globally
-    let api_key = args.api_key.or_else(|| std::env::var("OPENAI_API_KEY").ok());
-    if let Some(k) = api_key {
-        builder = builder.api_key(k);
-    }
-    
-    // Set base URL if provided globally
-    if let Some(base_url) = &args.base_url {
-        builder = builder.base_url(base_url);
-    }
+    let (mut builder, provider) = create_agent_builder(&config, &args);
 
     match &args.command {
         Some(Commands::Query { query, toolsets, skills }) => {
             let mut agent = builder.build();
             let registry = ToolRegistry::new();
-            
+            commands::mcp::load_mcp_servers_into_registry(&registry).await;
+
             // Process toolsets if provided
             if let Some(toolsets_str) = toolsets {
                 println!("Toolsets specified: {}", toolsets_str);
             } else if let Some(global_toolsets) = &args.toolsets {
                 println!("Toolsets specified: {}", global_toolsets);
             }
-            
+
             // Process skills if provided
             if let Some(skills_str) = skills {
                 println!("Skills specified: {}", skills_str);
             } else if let Some(global_skills) = &args.skills {
                 println!("Skills specified: {}", global_skills);
             }
-            
-            match agent.run_conversation(query, None, &registry).await {
+
+            match agent.run_conversation(query, None, &registry, provider).await {
                 Ok(response) => {
                     println!("{}", response);
                 }
@@ -300,14 +333,13 @@ async fn main() {
         Some(Commands::ConfigShow) => {
             commands::config::run_config_show();
         }
-        Some(Commands::Help) => {
-            println!("Help not yet implemented");
-        }
+
         Some(Commands::Chat) => {
             // Start interactive chat session
             let agent = builder.build();
             let registry = ToolRegistry::new();
-            interactive::run_interactive_loop(agent, &registry).await;
+            commands::mcp::load_mcp_servers_into_registry(&registry).await;
+            interactive::run_interactive_loop(agent, &registry, provider).await;
         }
         Some(Commands::Model) => {
             commands::model::run_model();
@@ -322,7 +354,9 @@ async fn main() {
             commands::lsp::run_lsp();
         }
         Some(Commands::Setup) => {
-            commands::setup::run_setup();
+            if let Err(e) = commands::setup::run_setup() {
+                eprintln!("Setup failed: {}", e);
+            }
         }
         Some(Commands::Whatsapp) => {
             commands::whatsapp::run_whatsapp();
@@ -396,8 +430,13 @@ async fn main() {
         Some(Commands::ComputerUse) => {
             commands::computer_use::run_computer_use();
         }
-        Some(Commands::Mcp) => {
-            commands::mcp::run_mcp();
+        Some(Commands::Mcp { serve }) => {
+            if *serve {
+                let registry = std::sync::Arc::new(ToolRegistry::new());
+                commands::mcp::serve_mcp(registry).await;
+            } else {
+                commands::mcp::run_mcp();
+            }
         }
         Some(Commands::Sessions) => {
             commands::sessions::run_sessions();
@@ -438,8 +477,9 @@ async fn main() {
                 // One-shot mode
                 let mut agent = builder.build();
                 let registry = ToolRegistry::new();
-                
-                match agent.run_conversation(oneshot, None, &registry).await {
+                commands::mcp::load_mcp_servers_into_registry(&registry).await;
+
+                match agent.run_conversation(oneshot, None, &registry, provider).await {
                     Ok(response) => {
                         println!("{}", response);
                     }
@@ -456,8 +496,125 @@ async fn main() {
                 // Regular interactive mode
                 let agent = builder.build();
                 let registry = ToolRegistry::new();
-                interactive::run_interactive_loop(agent, &registry).await;
+                commands::mcp::load_mcp_servers_into_registry(&registry).await;
+                interactive::run_interactive_loop(agent, &registry, provider).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use athena_core::config::{AthenaConfig, ModelConfig};
+
+    #[test]
+    fn test_mistral_config_injects_correct_base_url() {
+        let mut config = AthenaConfig::default();
+        config.model = ModelConfig {
+            default: "mistral-large-latest".to_string(),
+            provider: "mistral".to_string(),
+        };
+
+        // Create empty args
+        let args = Args {
+            workspace: None,
+            model: None,
+            api_key: None,
+            base_url: None,
+            max_turns: None,
+            oneshot: None,
+            toolsets: None,
+            skills: None,
+            resume: None,
+            continue_session: None,
+            worktree: false,
+            command: None,
+        };
+
+        // Ensure env var OPENAI_API_KEY is not interfering
+        std::env::remove_var("OPENAI_API_KEY");
+        // Inject a dummy mistral key for testing
+        std::env::set_var("MISTRAL_API_KEY", "dummy_mistral_key");
+
+        let builder = create_agent_builder(&config, &args);
+        let agent = builder.0.build();
+
+        assert_eq!(agent.base_url(), Some("https://api.mistral.ai/v1"));
+        assert_eq!(agent.api_key(), Some("dummy_mistral_key"));
+        
+        // Clean up
+        std::env::remove_var("MISTRAL_API_KEY");
+    }
+
+    #[tokio::test]
+    async fn test_end_to_end_mocked_provider_test() {
+        use wiremock::matchers::{method, path, header};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use athena_tools::ToolRegistry;
+
+        // 1. Start a local mock server
+        let mock_server = MockServer::start().await;
+
+        // 2. Set up the mock to expect a request with our dummy token
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions")) // The path used by async-openai
+            .and(header("Authorization", "Bearer dummy_mistral_key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "mock_id",
+                "object": "chat.completion",
+                "created": 12345,
+                "model": "mistral-large-latest",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello from mock Mistral!"
+                    },
+                    "finish_reason": "stop"
+                }]
+            })))
+            .mount(&mock_server)
+            .await;
+
+        // 3. Configure the CLI
+        let mut config = AthenaConfig::default();
+        config.model = ModelConfig {
+            default: "mistral-large-latest".to_string(),
+            provider: "mistral".to_string(),
+        };
+
+        // We use Args to override the base URL to our mock server
+        let args = Args {
+            workspace: None,
+            model: None,
+            api_key: None,
+            base_url: Some(format!("{}/v1", mock_server.uri())),
+            max_turns: None,
+            oneshot: None,
+            toolsets: None,
+            skills: None,
+            resume: None,
+            continue_session: None,
+            worktree: false,
+            command: None,
+        };
+
+        std::env::remove_var("OPENAI_API_KEY");
+        std::env::set_var("MISTRAL_API_KEY", "dummy_mistral_key");
+
+        // 4. Build the agent
+        let (mut builder, provider) = create_agent_builder(&config, &args);
+        // Force the max_iterations to 1 to prevent runaway
+        builder = builder.max_iterations(1);
+        let mut agent = builder.build();
+
+        // 5. Run a conversation and verify the response!
+        let registry = ToolRegistry::new();
+        let response = agent.run_conversation("Say hi", None, &registry, provider).await.unwrap();
+
+        assert_eq!(response, "Hello from mock Mistral!");
+
+        std::env::remove_var("MISTRAL_API_KEY");
     }
 }

@@ -2,7 +2,7 @@ use athena_core::config::{get_env_value, save_env_value, remove_env_value};
 use std::io::{self, Write};
 
 pub fn run_auth() {
-    println!("\nHermes Authentication Pool Manager");
+    println!("\nAthena Authentication Pool Manager");
     println!("═════════════════════════════════════\n");
     println!("Manage pooled API credentials across your workspace profiles.");
     println!();

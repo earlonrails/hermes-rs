@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_skills() {
-    println!("\nHermes Semantic Skills Embeddings");
+    println!("\nAthena Semantic Skills Embeddings");
     println!("═══════════════════════════════════\n");
     println!("Search, install, configure, and manage dynamic skill definitions.");
     println!();
 
-    let skills_dir = get_hermes_home().join("skills");
+    let skills_dir = get_athena_home().join("skills");
     if !skills_dir.exists() {
         let _ = fs::create_dir_all(&skills_dir);
     }
@@ -61,7 +61,7 @@ pub fn run_skills() {
 
             let skill_file_name = format!("{}.rs", name);
             let skill_path = skills_dir.join(&skill_file_name);
-            
+
             let template = format!(
                 "// Skill: {}\n// Description: A new custom semantic skill definition\n\npub fn execute() {{\n    println!(\"Executing {} skill...\");\n}}\n",
                 name, name

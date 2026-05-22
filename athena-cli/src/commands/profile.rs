@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_default_hermes_root;
+use athena_core::paths::get_default_athena_root;
 
 pub fn run_profile() {
-    println!("\nHermes Profiles Manager");
+    println!("\nAthena Profiles Manager");
     println!("═════════════════════════\n");
-    println!("Manage isolated Hermes workspace profiles.");
+    println!("Manage isolated Athena workspace profiles.");
     println!();
 
-    let root = get_default_hermes_root();
+    let root = get_default_athena_root();
     let profiles_dir = root.join("profiles");
     if !profiles_dir.exists() {
         let _ = fs::create_dir_all(&profiles_dir);
@@ -98,7 +98,7 @@ pub fn run_profile() {
                 let _ = fs::create_dir_all(new_profile_dir.join("skills"));
                 let _ = fs::create_dir_all(new_profile_dir.join("plugins"));
                 let _ = fs::create_dir_all(new_profile_dir.join("sessions"));
-                
+
                 let _ = fs::write(&active_profile_path, &name);
                 println!("  ✓ Created and switched to new isolated profile: {}.", name);
             } else {

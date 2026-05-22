@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use crate::Args;
 
 pub fn run_completion() {
-    println!("\nHermes Shell Completion Generator");
+    println!("\nAthena Shell Completion Generator");
     println!("═════════════════════════════════════\n");
     println!("Select your shell to generate the auto-completion script:");
     println!("  1. Bash");
@@ -32,14 +32,14 @@ pub fn run_completion() {
 
     println!("\n# --- COPY THE SCRIPT BELOW ---");
     let mut cmd = Args::command();
-    generate(shell, &mut cmd, "hermes", &mut io::stdout());
+    generate(shell, &mut cmd, "athena", &mut io::stdout());
     println!("# --- END OF SCRIPT ---");
-    
+
     println!("\nTip: To load this automatically on startup, redirect this output to a file and source it:");
     match shell {
-        Shell::Bash => println!("  hermes completion > ~/.hermes/completion.bash\n  echo \"source ~/.hermes/completion.bash\" >> ~/.bashrc"),
-        Shell::Zsh => println!("  hermes completion > ~/.hermes/completion.zsh\n  echo \"source ~/.hermes/completion.zsh\" >> ~/.zshrc"),
-        Shell::Fish => println!("  hermes completion > ~/.config/fish/completions/hermes.fish"),
+        Shell::Bash => println!("  athena completion > ~/.athena/completion.bash\n  echo \"source ~/.athena/completion.bash\" >> ~/.bashrc"),
+        Shell::Zsh => println!("  athena completion > ~/.athena/completion.zsh\n  echo \"source ~/.athena/completion.zsh\" >> ~/.zshrc"),
+        Shell::Fish => println!("  athena completion > ~/.config/fish/completions/athena.fish"),
         _ => {}
     }
 }

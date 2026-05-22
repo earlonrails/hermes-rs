@@ -2,17 +2,17 @@ use athena_core::config::{load_config, get_env_value};
 use std::process::Command;
 
 pub fn run_doctor() {
-    println!("\nHermes Diagnostics (Doctor)");
+    println!("\nAthena Diagnostics (Doctor)");
     println!("═════════════════════════════\n");
 
     let mut issues_found = 0;
 
-    // Check 1: ~/.hermes directory exists
-    let home = athena_core::paths::get_hermes_home();
+    // Check 1: ~/.athena directory exists
+    let home = athena_core::paths::get_athena_home();
     if home.exists() {
-        println!("  ✓ Home directory exists at ~/.hermes");
+        println!("  ✓ Home directory exists at ~/.athena");
     } else {
-        println!("  ✗ Home directory ~/.hermes does not exist!");
+        println!("  ✗ Home directory ~/.athena does not exist!");
         issues_found += 1;
     }
 
@@ -28,7 +28,7 @@ pub fn run_doctor() {
             println!("  ✓ Active provider configured: {}", config.model.provider);
         }
     } else {
-        println!("  ✗ config.yaml not found! Run 'hermes setup' to create one.");
+        println!("  ✗ config.yaml not found! Run 'athena setup' to create one.");
         issues_found += 1;
     }
 
@@ -57,7 +57,7 @@ pub fn run_doctor() {
     if keys_found > 0 {
         println!("  ✓ {} LLM API key(s) detected.", keys_found);
     } else {
-        println!("  ✗ No LLM API keys configured! You won't be able to run queries. Run 'hermes login'.");
+        println!("  ✗ No LLM API keys configured! You won't be able to run queries. Run 'athena login'.");
         issues_found += 1;
     }
 
@@ -68,7 +68,7 @@ pub fn run_doctor() {
     }
 
     if issues_found == 0 {
-        println!("\n✓ No critical issues found! Your Hermes installation looks healthy.");
+        println!("\n✓ No critical issues found! Your Athena installation looks healthy.");
     } else {
         println!("\n✗ Found {} issue(s). Please follow the recommendations above to resolve them.", issues_found);
     }

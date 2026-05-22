@@ -4,11 +4,11 @@ use tracing::{debug, info};
 use wasmtime::*;
 use wasmtime_wasi::{WasiCtxBuilder, WasiP1Ctx};
 
-use crate::host::HermesHost;
+use crate::host::AthenaHost;
 
 pub struct PluginState {
     pub wasi: WasiP1Ctx,
-    pub host: HermesHost,
+    pub host: AthenaHost,
 }
 
 pub struct WasmPlugin {
@@ -30,14 +30,14 @@ impl PluginManager {
 
         let engine = Engine::new(&config)?;
         let mut linker = Linker::new(&engine);
-        
+
         // Link WASI features
         wasmtime_wasi::preview1::add_to_linker_async(&mut linker, |state: &mut PluginState| &mut state.wasi)?;
-        
-        // Link Hermes specific host functions
+
+        // Link Athena specific host functions
         linker.func_wrap(
-            "hermes", 
-            "log", 
+            "athena",
+            "log",
             |_caller: Caller<'_, PluginState>, msg_ptr: i32, msg_len: i32| {
                 // Host function to let Wasm log via tracing
                 debug!("Wasm plugin logged message at ptr {}, len {}", msg_ptr, msg_len);
@@ -61,7 +61,7 @@ impl PluginManager {
 
         info!("Loading Wasm plugin: {}", name);
         let module = Module::from_file(&self.engine, path_ref)?;
-        
+
         let plugin = WasmPlugin {
             name: name.clone(),
             module,
@@ -82,21 +82,21 @@ impl PluginManager {
 
         let state = PluginState {
             wasi: wasi_p1,
-            host: HermesHost::new(),
+            host: AthenaHost::new(),
         };
 
         let mut store = Store::new(&self.engine, state);
-        
+
         // Add fuel to prevent infinite loops in untrusted Wasm
         store.set_fuel(10_000_000)?;
 
         let instance = self.linker.instantiate_async(&mut store, &plugin.module).await?;
-        
+
         let func = instance.get_typed_func::<(), ()>(&mut store, func_name)?;
-        
+
         // Call the exported function
         func.call_async(&mut store, ()).await?;
-        
+
         Ok(())
     }
 }
@@ -123,24 +123,24 @@ mod tests {
     #[tokio::test]
     async fn test_load_and_execute_plugin() {
         let manager = PluginManager::new().unwrap();
-        
+
         let wat_content = r#"
         (module
             (func (export "test_func"))
         )
         "#;
-        
+
         let temp_file = env::temp_dir().join("test_plugin.wat");
         fs::write(&temp_file, wat_content).unwrap();
-        
+
         // Load the plugin
         let name = manager.load_plugin(&temp_file).await.unwrap();
         assert_eq!(name, "test_plugin");
-        
+
         // Execute the exported function
         let exec_res = manager.execute_plugin(&name, "test_func").await;
         assert!(exec_res.is_ok());
-        
+
         // Execute a non-existent function
         let exec_err = manager.execute_plugin(&name, "non_existent_func").await;
         assert!(exec_err.is_err());
@@ -148,7 +148,30 @@ mod tests {
         // Execute on a non-existent plugin
         let exec_err2 = manager.execute_plugin("unknown_plugin", "test_func").await;
         assert!(exec_err2.is_err());
-        
-        let _ = fs::remove_file(temp_file);
+    }
+
+    #[tokio::test]
+    async fn test_load_and_execute_real_rust_plugin() {
+        // Compile the plugin first using cargo (if target exists)
+        // We ignore the error if wasm32-wasip1 isn't installed in the test environment,
+        // but if it works, we test the actual execution.
+        let status = std::process::Command::new("cargo")
+            .args(&["build", "--target", "wasm32-wasip1", "--release"])
+            .current_dir("../apps/example-plugin")
+            .status();
+
+        if let Ok(st) = status {
+            if st.success() {
+                let wasm_path = Path::new("../apps/example-plugin/target/wasm32-wasip1/release/example_plugin.wasm");
+                if wasm_path.exists() {
+                    let manager = PluginManager::new().unwrap();
+                    let name = manager.load_plugin(wasm_path).await.unwrap();
+                    assert_eq!(name, "example_plugin");
+
+                    let exec_res = manager.execute_plugin(&name, "test_func").await;
+                    assert!(exec_res.is_ok());
+                }
+            }
+        }
     }
 }

@@ -27,6 +27,7 @@ pub async fn handle_request(
     line: &str,
     agent: Arc<Mutex<AIAgent>>,
     registry: Arc<ToolRegistry>,
+    provider: Arc<dyn athena_providers::LLMProvider + Send + Sync>,
 ) -> Option<RpcResponse> {
     if line.trim().is_empty() {
         return None;
@@ -50,9 +51,9 @@ pub async fn handle_request(
 
             let req_id = req.id;
             let mut locked_agent = agent.lock().await;
-            
+
             let res = locked_agent
-                .run_conversation(&prompt, Some("You are Hermes TUI."), &registry)
+                .run_conversation(&prompt, Some("You are Athena TUI."), &registry, provider)
                 .await;
 
             let response_value = match res {
@@ -82,20 +83,24 @@ async fn main() {
 
     let stdin = stdin();
     let mut reader = BufReader::new(stdin).lines();
-    let mut stdout = stdout();
+    let _stdout = stdout();
 
     let registry = Arc::new(ToolRegistry::new());
     let agent_builder = AIAgent::builder().model("gpt-4o").max_iterations(20);
     let agent = Arc::new(Mutex::new(agent_builder.build()));
+    
+    athena_providers::registry::init_builtin_providers();
+    let provider = athena_providers::registry::get_provider("openai").unwrap();
 
     loop {
         match reader.next_line().await {
             Ok(Some(line)) => {
                 let agent_clone = Arc::clone(&agent);
                 let reg_clone = Arc::clone(&registry);
+                let provider_clone = Arc::clone(&provider);
 
                 tokio::spawn(async move {
-                    if let Some(rpc_res) = handle_request(&line, agent_clone, reg_clone).await {
+                    if let Some(rpc_res) = handle_request(&line, agent_clone, reg_clone, provider_clone).await {
                         let mut out = tokio::io::stdout();
                         let _ = out
                             .write_all(
@@ -127,7 +132,7 @@ mod tests {
         assert_eq!(req.jsonrpc, "2.0");
         assert_eq!(req.method, "prompt.submit");
         assert_eq!(req.id, Some(1));
-        
+
         let prompt = req.params.unwrap().get("prompt").unwrap().as_str().unwrap().to_string();
         assert_eq!(prompt, "hello");
     }
@@ -140,7 +145,7 @@ mod tests {
             error: None,
             id: Some(1),
         };
-        
+
         let json = serde_json::to_string(&res).unwrap();
         assert!(json.contains(r#""jsonrpc":"2.0""#));
         assert!(json.contains(r#""content":"hi""#));
@@ -151,7 +156,8 @@ mod tests {
     async fn test_handle_request_empty_line() {
         let registry = Arc::new(ToolRegistry::new());
         let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
-        let res = handle_request("   \n", agent, registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let res = handle_request("   \n", agent, registry, provider).await;
         assert!(res.is_none());
     }
 
@@ -159,7 +165,8 @@ mod tests {
     async fn test_handle_request_invalid_json() {
         let registry = Arc::new(ToolRegistry::new());
         let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
-        let res = handle_request("{invalid}", agent, registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let res = handle_request("{invalid}", agent, registry, provider).await;
         assert!(res.is_none());
     }
 
@@ -167,9 +174,10 @@ mod tests {
     async fn test_handle_request_unknown_method() {
         let registry = Arc::new(ToolRegistry::new());
         let agent = Arc::new(Mutex::new(AIAgent::builder().build()));
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
         let line = r#"{"jsonrpc":"2.0","method":"unknown.method","id":123}"#;
-        let res = handle_request(line, agent, registry).await;
-        
+        let res = handle_request(line, agent, registry, provider).await;
+
         assert!(res.is_some());
         let response = res.unwrap();
         assert_eq!(response.id, Some(123));

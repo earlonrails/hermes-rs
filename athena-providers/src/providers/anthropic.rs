@@ -246,7 +246,17 @@ impl LLMProvider for AnthropicProvider {
         
         let mut request = client.request(reqwest::Method::GET, &url);
         
-        if let Some(key) = api_key {
+        let mut resolved_key = api_key.map(|k| k.to_string());
+        if resolved_key.is_none() {
+            for env_var in &self.profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(key) = resolved_key {
             request = request.header("x-api-key", key);
         }
         
@@ -289,11 +299,21 @@ impl LLMProvider for AnthropicProvider {
         let body = self.build_anthropic_request(&request);
         
         let client = reqwest::Client::new();
-        let url = format!("{}/v1/messages", self.profile.base_url);
+        let url = format!("{}/v1/messages", request.base_url_override.as_deref().unwrap_or(&self.profile.base_url));
         
         let mut request_builder = client.request(reqwest::Method::POST, &url);
         
-        if let Some(api_key) = std::env::var("ANTHROPIC_API_KEY").ok() {
+        let mut resolved_key = request.api_key_override.clone();
+        if resolved_key.is_none() {
+            for env_var in &self.profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(api_key) = resolved_key {
             request_builder = request_builder.header("x-api-key", api_key);
         }
         
@@ -389,11 +409,21 @@ impl LLMProvider for AnthropicProvider {
         body["stream"] = serde_json::Value::Bool(true);
         
         let client = reqwest::Client::new();
-        let url = format!("{}/v1/messages", self.profile.base_url);
+        let url = format!("{}/v1/messages", request.base_url_override.as_deref().unwrap_or(&self.profile.base_url));
         
         let mut request_builder = client.request(reqwest::Method::POST, &url);
         
-        if let Some(api_key) = std::env::var("ANTHROPIC_API_KEY").ok() {
+        let mut resolved_key = request.api_key_override.clone();
+        if resolved_key.is_none() {
+            for env_var in &self.profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(api_key) = resolved_key {
             request_builder = request_builder.header("x-api-key", api_key);
         }
         
@@ -613,7 +643,7 @@ mod tests {
             stream: false,
             tools: None,
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let body = provider.build_anthropic_request(&request);
@@ -704,7 +734,7 @@ mod tests {
             stream: false,
             tools: None,
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let response = provider.create_chat_completion(request).await.unwrap();
@@ -762,7 +792,7 @@ mod tests {
             stream: true,
             tools: None,
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
@@ -820,7 +850,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "claude".into(),
             messages: vec![msg, tool_msg],
-            temperature: None, max_tokens: Some(10), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: Some(10), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         
         let body = provider.build_anthropic_request(&req);
@@ -886,7 +916,7 @@ mod tests {
                 }
             }]),
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let response = provider.create_chat_completion(request).await.unwrap();
@@ -908,7 +938,7 @@ mod tests {
         let req2 = ChatCompletionRequest {
             model: "claude".to_string(),
             messages: vec![],
-            temperature: None, max_tokens: Some(1), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: Some(1), top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
         assert!(err_provider.create_chat_completion_stream(req2).await.is_err());
@@ -921,7 +951,7 @@ mod tests {
         let mut request = ChatCompletionRequest {
             model: "test".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: Some(ToolChoice::Auto), extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: Some(ToolChoice::Auto), extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let body1 = provider.build_anthropic_request(&request);
@@ -949,7 +979,7 @@ mod tests {
                 ChatMessage { role: MessageRole::Assistant, content: "Res 1".to_string(), name: None, tool_calls: None, tool_call_id: None },
                 ChatMessage { role: MessageRole::Assistant, content: "Res 2".to_string(), name: None, tool_calls: None, tool_call_id: None },
             ],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let body = provider.build_anthropic_request(&request);
@@ -975,6 +1005,7 @@ mod tests {
             messages: vec![],
             temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None,
             extra_body,
+            api_key_override: None, base_url_override: None,
         };
 
         let body = provider.build_anthropic_request(&request);
@@ -1020,7 +1051,7 @@ mod tests {
         let req2 = ChatCompletionRequest {
             model: "test".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
         assert!(err_provider.create_chat_completion_stream(req2).await.is_err());
@@ -1062,7 +1093,7 @@ mod tests {
         let request = ChatCompletionRequest {
             model: "claude-3".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
@@ -1099,7 +1130,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "claude".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         assert!(provider.create_chat_completion(req.clone()).await.is_err());
         assert!(provider.create_chat_completion_stream(req).await.is_err());
@@ -1111,7 +1142,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "claude".to_string(),
             messages: vec![ChatMessage { role: MessageRole::Assistant, content: "".to_string(), name: None, tool_calls: Some(vec![]), tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         let body = provider.build_anthropic_request(&req);
         let msgs = body["messages"].as_array().unwrap();
@@ -1140,7 +1171,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "claude".to_string(),
             messages: vec![msg1, msg2],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         
         let body = provider.build_anthropic_request(&req);
@@ -1168,7 +1199,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "claude".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         let mut stream = provider.create_chat_completion_stream(req).await.unwrap().response;
         use futures::StreamExt;

@@ -3,7 +3,7 @@ use std::io::{self, Write};
 
 pub fn run_config_show() {
     let config = load_config();
-    println!("\nCurrent Hermes Configuration:");
+    println!("\nCurrent Athena Configuration:");
     println!("═════════════════════════════════");
     println!("  Profile:          {:?}", config.active_profile.as_deref().unwrap_or("default"));
     println!("  Active Provider:  {}", config.model.provider);
@@ -47,7 +47,7 @@ pub fn run_config_edit() {
     }
 
     match save_config(&config) {
-        Ok(()) => println!("\n✓ Config successfully updated at ~/.hermes/config.yaml"),
+        Ok(()) => println!("\n✓ Config successfully updated at ~/.athena/config.yaml"),
         Err(e) => println!("\n✗ Failed to save config: {}", e),
     }
 }

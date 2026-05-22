@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::fs;
 use crate::paths::{get_config_path, get_env_path};
 
-/// Top-level Hermes configuration, persisted as ~/.hermes/config.yaml.
+/// Top-level Athena configuration, persisted as ~/.athena/config.yaml.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HermesConfig {
+pub struct AthenaConfig {
     /// The currently active profile name (default: "default").
     #[serde(default)]
     pub active_profile: Option<String>,
@@ -43,7 +43,7 @@ pub struct HermesConfig {
     pub config_version: u32,
 }
 
-impl Default for HermesConfig {
+impl Default for AthenaConfig {
     fn default() -> Self {
         Self {
             active_profile: None,
@@ -154,23 +154,23 @@ pub struct ToolsConfig {
 
 // ─── Load / Save ───────────────────────────────────────────────────────────
 
-/// Load the Hermes config from ~/.hermes/config.yaml, or return defaults.
-pub fn load_config() -> HermesConfig {
+/// Load the Athena config from ~/.athena/config.yaml, or return defaults.
+pub fn load_config() -> AthenaConfig {
     let path = get_config_path();
     match fs::read_to_string(&path) {
         Ok(contents) => match serde_yaml::from_str(&contents) {
             Ok(cfg) => cfg,
             Err(e) => {
                 eprintln!("Warning: failed to parse {}: {}", path.display(), e);
-                HermesConfig::default()
+                AthenaConfig::default()
             }
         },
-        Err(_) => HermesConfig::default(),
+        Err(_) => AthenaConfig::default(),
     }
 }
 
-/// Save the Hermes config to ~/.hermes/config.yaml.
-pub fn save_config(config: &HermesConfig) -> Result<(), String> {
+/// Save the Athena config to ~/.athena/config.yaml.
+pub fn save_config(config: &AthenaConfig) -> Result<(), String> {
     let path = get_config_path();
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
@@ -184,7 +184,7 @@ pub fn save_config(config: &HermesConfig) -> Result<(), String> {
 
 // ─── .env helpers ──────────────────────────────────────────────────────────
 
-/// Read a value from ~/.hermes/.env (simple KEY=VALUE parser).
+/// Read a value from ~/.athena/.env (simple KEY=VALUE parser).
 pub fn get_env_value(key: &str) -> Option<String> {
     // First check process environment
     if let Ok(val) = std::env::var(key) {
@@ -209,7 +209,7 @@ pub fn get_env_value(key: &str) -> Option<String> {
     None
 }
 
-/// Save or update a key in ~/.hermes/.env.
+/// Save or update a key in ~/.athena/.env.
 pub fn save_env_value(key: &str, value: &str) -> Result<(), String> {
     let env_path = get_env_path();
     if let Some(parent) = env_path.parent() {
@@ -242,7 +242,7 @@ pub fn save_env_value(key: &str, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Remove a key from ~/.hermes/.env.
+/// Remove a key from ~/.athena/.env.
 pub fn remove_env_value(key: &str) -> Result<(), String> {
     let env_path = get_env_path();
     let existing = fs::read_to_string(&env_path).unwrap_or_default();
@@ -284,9 +284,9 @@ pub fn has_any_provider_configured() -> bool {
     false
 }
 
-/// Return the Hermes home directory as a displayable string.
-pub fn hermes_home_display() -> String {
-    crate::paths::display_hermes_home()
+/// Return the Athena home directory as a displayable string.
+pub fn athena_home_display() -> String {
+    crate::paths::display_athena_home()
 }
 
 #[cfg(test)]
@@ -309,18 +309,18 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
 
-        let config = HermesConfig::default();
+        let config = AthenaConfig::default();
         assert_eq!(config.terminal_backend, "local");
         assert_eq!(config.agent.max_iterations, 20);
         assert!(!config.agent.yolo_mode);
-        
+
         let tools_cfg = ToolsConfig::default();
         assert!(tools_cfg.disabled.is_empty());
         assert!(tools_cfg.extra_dirs.is_empty());
-        
+
         let gateway_cfg = GatewayConfig::default();
         assert!(!gateway_cfg.telegram_enabled);
-        
+
         let provider_cfg = ProviderConfig::default();
         assert_eq!(provider_cfg.name, "");
     }
@@ -330,7 +330,7 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let temp_dir = setup_test_env();
 
-        let mut config = HermesConfig::default();
+        let mut config = AthenaConfig::default();
         config.active_profile = Some("test_profile".to_string());
         config.model.default = "gpt-4o".to_string();
 
@@ -341,16 +341,16 @@ mod tests {
 
         // Load from the same path
         let contents = std::fs::read_to_string(&config_path).unwrap();
-        let loaded: HermesConfig = serde_yaml::from_str(&contents).unwrap();
+        let loaded: AthenaConfig = serde_yaml::from_str(&contents).unwrap();
         assert_eq!(loaded.active_profile, Some("test_profile".to_string()));
         assert_eq!(loaded.model.default, "gpt-4o");
     }
-    
+
     #[test]
     fn test_load_config_missing_file() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
-        
+
         let loaded = load_config();
         assert_eq!(loaded.terminal_backend, "local"); // Should fall back to default
     }
@@ -382,11 +382,11 @@ mod tests {
     }
 
     #[test]
-    fn test_hermes_home_display() {
+    fn test_athena_home_display() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
-        
-        let display = hermes_home_display();
+
+        let display = athena_home_display();
         assert!(!display.is_empty());
     }
 
@@ -401,10 +401,10 @@ mod tests {
     fn test_load_config_invalid_yaml() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
+
         let config_path = dir.path().join("config.yaml");
         std::fs::write(&config_path, "invalid: : yaml: ").unwrap();
-        
+
         let loaded = load_config();
         assert_eq!(loaded.terminal_backend, "local"); // Default fallback
     }
@@ -413,13 +413,13 @@ mod tests {
     fn test_save_config_function() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
-        
-        let mut config = HermesConfig::default();
+
+        let mut config = AthenaConfig::default();
         config.active_profile = Some("save_test".to_string());
-        
+
         // This implicitly creates the parent directory since it's saving to ATHENA_HOME/config.yaml
         assert!(save_config(&config).is_ok());
-        
+
         let loaded = load_config();
         assert_eq!(loaded.active_profile.as_deref(), Some("save_test"));
     }
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn test_get_env_value_process_override() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        
+
         env::set_var("ATHENA_TEST_OVERRIDE", "process_value");
         assert_eq!(get_env_value("ATHENA_TEST_OVERRIDE").as_deref(), Some("process_value"));
         env::remove_var("ATHENA_TEST_OVERRIDE");
@@ -437,7 +437,7 @@ mod tests {
     fn test_env_value_inline_replacement() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
-        
+
         // Make sure it doesn't read from process environment
         env::remove_var("ATHENA_TEST_INLINE");
 
@@ -449,7 +449,7 @@ mod tests {
         // Second save edits the line in place
         assert!(save_env_value("ATHENA_TEST_INLINE", "second").is_ok());
         assert_eq!(get_env_value("ATHENA_TEST_INLINE").as_deref(), Some("second"));
-        
+
         // Ensure removal with missing values doesn't crash and works fine
         assert!(remove_env_value("MISSING_KEY").is_ok());
         assert!(remove_env_value("ATHENA_TEST_INLINE").is_ok());
@@ -459,11 +459,11 @@ mod tests {
     fn test_save_env_value_directory_creation() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
+
         // Set ATHENA_HOME to a non-existent subdirectory
         let custom_home = dir.path().join("deep").join("nested");
         env::set_var("ATHENA_HOME", &custom_home);
-        
+
         assert!(save_env_value("TEST_DEEP", "val").is_ok());
         assert!(custom_home.exists());
     }

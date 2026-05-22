@@ -1,12 +1,12 @@
 use std::fs;
 use std::io::{self, BufRead, BufReader};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_logs() {
-    println!("\nHermes Log Viewer");
+    println!("\nAthena Log Viewer");
     println!("═══════════════════\n");
 
-    let log_dir = get_hermes_home().join("logs");
+    let log_dir = get_athena_home().join("logs");
     if !log_dir.exists() {
         println!("No logs directory found at {}.", log_dir.display());
         return;

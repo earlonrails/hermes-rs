@@ -2,7 +2,7 @@ use std::net::TcpListener;
 use std::io::{Write, Read};
 
 pub fn run_dashboard() {
-    println!("\nHermes Web GUI Dashboard");
+    println!("\nAthena Web GUI Dashboard");
     println!("══════════════════════════\n");
     println!("Launching local dashboard at http://localhost:8000...");
     println!("Press Ctrl+C to stop.");
@@ -19,7 +19,7 @@ pub fn run_dashboard() {
     let html_content = r#"<!DOCTYPE html>
 <html>
 <head>
-    <title>Hermes Agent Dashboard</title>
+    <title>Athena Agent Dashboard</title>
     <style>
         body {
             background: linear-gradient(135deg, #0f172a, #1e1b4b);
@@ -84,7 +84,7 @@ pub fn run_dashboard() {
 </head>
 <body>
     <div class="dashboard">
-        <h1>Hermes Agent Dashboard</h1>
+        <h1>Athena Agent Dashboard</h1>
         <div class="subtitle">Multi-Agent Workspace Hub & Analytics</div>
         <div class="grid">
             <div class="card">

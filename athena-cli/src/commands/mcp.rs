@@ -1,7 +1,11 @@
 use std::fs;
 use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
+use athena_tools::ToolRegistry;
+use athena_mcp::client::{McpClient, ExternalMcpTool};
+use athena_mcp::server::McpServer;
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct McpServersList {
@@ -17,12 +21,12 @@ struct McpServerInfo {
 }
 
 pub fn run_mcp() {
-    println!("\nHermes Model Context Protocol (MCP)");
+    println!("\nAthena Model Context Protocol (MCP)");
     println!("═════════════════════════════════════\n");
     println!("Manage external MCP server processes and custom clients.");
     println!();
 
-    let mcp_file = get_hermes_home().join("mcp_servers.json");
+    let mcp_file = get_athena_home().join("mcp_servers.json");
     let mut data = if mcp_file.exists() {
         let content = fs::read_to_string(&mcp_file).unwrap_or_default();
         serde_json::from_str::<McpServersList>(&content).unwrap_or_default()
@@ -166,3 +170,48 @@ pub fn run_mcp() {
         _ => {}
     }
 }
+
+pub async fn load_mcp_servers_into_registry(registry: &ToolRegistry) {
+    let mcp_file = get_athena_home().join("mcp_servers.json");
+    if !mcp_file.exists() {
+        return;
+    }
+
+    let content = fs::read_to_string(&mcp_file).unwrap_or_default();
+    let data = serde_json::from_str::<McpServersList>(&content).unwrap_or_default();
+
+    for server_info in data.servers {
+        if !server_info.enabled {
+            continue;
+        }
+
+        println!("📡 Loading MCP Server: {}", server_info.name);
+        match McpClient::new(&server_info.command, &server_info.args).await {
+            Ok(client) => {
+                let client_arc = Arc::new(client);
+                if let Ok(tools) = client_arc.list_tools().await {
+                    for tool_schema in tools {
+                        let tool_name = tool_schema["name"].as_str().unwrap_or("unknown_tool").to_string();
+                        let name_static = Box::leak(tool_name.into_boxed_str());
+                        let ext_tool = ExternalMcpTool {
+                            client: client_arc.clone(),
+                            name: name_static,
+                            toolset: "mcp",
+                            schema_val: tool_schema.clone(),
+                        };
+                        registry.register(Arc::new(ext_tool)).await;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to start MCP server '{}': {}", server_info.name, e);
+            }
+        }
+    }
+}
+
+pub async fn serve_mcp(registry: Arc<ToolRegistry>) {
+    let server = McpServer::new(registry);
+    server.run().await;
+}
+

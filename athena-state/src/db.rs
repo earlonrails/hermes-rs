@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use athena_core::get_hermes_home;
+use athena_core::get_athena_home;
 
 pub const DEFAULT_DB_NAME: &str = "state.db";
 
@@ -76,14 +76,14 @@ pub struct SessionDB {
 
 impl SessionDB {
     pub fn new(db_path: Option<PathBuf>) -> Result<Self> {
-        let path = db_path.unwrap_or_else(|| get_hermes_home().join(DEFAULT_DB_NAME));
-        
+        let path = db_path.unwrap_or_else(|| get_athena_home().join(DEFAULT_DB_NAME));
+
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).unwrap_or_default();
         }
 
         let conn = Connection::open(&path)?;
-        
+
         // Setup WAL mode
         let _ = conn.pragma_update(None, "journal_mode", "WAL");
         let _ = conn.pragma_update(None, "foreign_keys", "ON");
@@ -116,7 +116,7 @@ mod tests {
     fn test_session_db_initialization() {
         // Create an in-memory database to test the schema creation without hitting disk
         let db = SessionDB::new(Some(PathBuf::from(":memory:"))).unwrap();
-        
+
         let conn = db.conn.lock().unwrap();
         // Verify a table exists to confirm schema init succeeded
         let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'").unwrap();
@@ -128,7 +128,7 @@ mod tests {
     fn test_session_db_creates_directory() {
         let temp_dir = TempDir::new().unwrap();
         let nested_path = temp_dir.path().join("nested").join("db.sqlite");
-        
+
         // This should create the 'nested' directory
         let db = SessionDB::new(Some(nested_path.clone()));
         assert!(db.is_ok());
@@ -140,7 +140,7 @@ mod tests {
         // We ensure it falls back gracefully when None is passed
         let temp_dir = TempDir::new().unwrap();
         std::env::set_var("ATHENA_HOME", temp_dir.path());
-        
+
         let db = SessionDB::new(None);
         assert!(db.is_ok());
         assert!(temp_dir.path().join(DEFAULT_DB_NAME).exists());

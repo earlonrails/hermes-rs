@@ -2,7 +2,7 @@ use athena_core::config::{load_config, get_env_value};
 use std::process::Command;
 
 pub fn run_status() {
-    println!("\nHermes Component Status");
+    println!("\nAthena Component Status");
     println!("═════════════════════════\n");
 
     let config = load_config();
@@ -32,7 +32,7 @@ pub fn run_status() {
 
     // 3. Execution Environment dependencies
     println!("  Dependencies:");
-    
+
     // Check docker
     let docker_check = Command::new("docker").arg("--version").output();
     let docker_status = match docker_check {

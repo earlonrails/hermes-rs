@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct AuthorizedClients {
@@ -17,12 +17,12 @@ struct ClientInfo {
 }
 
 pub fn run_pairing() {
-    println!("\nHermes Gateway Pairing Manager");
+    println!("\nAthena Gateway Pairing Manager");
     println!("════════════════════════════════\n");
     println!("Manage authorization for remote messaging gateways (Telegram, Slack, WhatsApp).");
     println!();
 
-    let clients_file = get_hermes_home().join("authorized_clients.json");
+    let clients_file = get_athena_home().join("authorized_clients.json");
     let mut auth_data = if clients_file.exists() {
         let content = fs::read_to_string(&clients_file).unwrap_or_default();
         serde_json::from_str::<AuthorizedClients>(&content).unwrap_or_default()
@@ -56,7 +56,7 @@ pub fn run_pairing() {
                 let idx = rand::random::<usize>() % chars.len();
                 code.push(chars[idx]);
             }
-            println!("\n  🔑 Temporary Pairing Code: HERMES-{}", code);
+            println!("\n  🔑 Temporary Pairing Code: ATHENA-{}", code);
             println!("  Send this code in a DM to your configured Telegram/Slack bot to authorize your account.");
             println!("  (Code is active for this session)");
         }

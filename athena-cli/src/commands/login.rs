@@ -51,7 +51,7 @@ pub fn run_login() {
 
     if !key.is_empty() {
         match save_env_value(env_var, key) {
-            Ok(()) => println!("✓ Saved API key for {} to ~/.hermes/.env", name),
+            Ok(()) => println!("✓ Saved API key for {} to ~/.athena/.env", name),
             Err(e) => println!("✗ Failed to save API key: {}", e),
         }
     } else {

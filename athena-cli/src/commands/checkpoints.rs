@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_checkpoints() {
-    println!("\nHermes Checkpoints Manager");
+    println!("\nAthena Checkpoints Manager");
     println!("════════════════════════════\n");
-    println!("List, inspect, and prune previous state snapshots saved at ~/.hermes/checkpoints/.");
+    println!("List, inspect, and prune previous state snapshots saved at ~/.athena/checkpoints/.");
     println!();
 
-    let checkpoints_dir = get_hermes_home().join("checkpoints");
+    let checkpoints_dir = get_athena_home().join("checkpoints");
     if !checkpoints_dir.exists() {
         println!("No checkpoints folder found at {}.", checkpoints_dir.display());
         return;

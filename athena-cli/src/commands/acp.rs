@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
 
 pub fn run_acp() {
-    println!("\nHermes Agent Client Protocol (ACP) Server");
+    println!("\nAthena Agent Client Protocol (ACP) Server");
     println!("═══════════════════════════════════════════\n");
     println!("Launching local ACP listener server via standard JSON-RPC on stdin/stdout...");
     println!("Press Ctrl+C to stop.");

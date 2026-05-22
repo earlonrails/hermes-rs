@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_plugins() {
-    println!("\nHermes WASM Plugins Manager");
+    println!("\nAthena WASM Plugins Manager");
     println!("═════════════════════════════\n");
     println!("List, configure, and install sandboxed web-assembly agent extensions.");
     println!();
 
-    let plugins_dir = get_hermes_home().join("plugins");
+    let plugins_dir = get_athena_home().join("plugins");
     if !plugins_dir.exists() {
         let _ = fs::create_dir_all(&plugins_dir);
     }

@@ -2,7 +2,7 @@ use athena_core::config::{load_config, save_config};
 use std::io::{self, Write};
 
 pub fn run_tools() {
-    println!("\nHermes Tools Configuration");
+    println!("\nAthena Tools Configuration");
     println!("════════════════════════════\n");
     println!("Configure which local capabilities (filesystem, search, execution) are enabled.");
     println!();

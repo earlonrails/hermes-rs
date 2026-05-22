@@ -50,8 +50,20 @@ pub struct OpenAIProvider {
 
 impl OpenAIProvider {
     pub fn new(api_key: Option<String>, base_url: Option<String>) -> Self {
+        let profile = openai_profile();
         let mut config = OpenAIConfig::new();
-        if let Some(key) = api_key {
+        
+        let mut resolved_key = api_key;
+        if resolved_key.is_none() {
+            for env_var in &profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(key) = resolved_key {
             config = config.with_api_key(key);
         }
         if let Some(url) = base_url {
@@ -59,17 +71,33 @@ impl OpenAIProvider {
         }
         
         Self {
-            profile: openai_profile(),
+            profile,
             client: Client::with_config(config),
         }
     }
     
     pub fn new_with_profile(api_key: Option<String>, base_url: Option<String>, profile: ProviderProfile) -> Self {
         let mut config = OpenAIConfig::new();
-        if let Some(key) = api_key {
+        
+        let mut resolved_key = api_key.clone();
+        println!("DEBUG: new_with_profile called with api_key={:?}, base_url={:?}", api_key, base_url);
+        println!("DEBUG: profile.env_vars={:?}", profile.env_vars);
+        if resolved_key.is_none() {
+            for env_var in &profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    println!("DEBUG: Found env var {}={}", env_var, val);
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(key) = resolved_key {
+            println!("DEBUG: setting config api_key to {:?}", key);
             config = config.with_api_key(key);
         }
         if let Some(url) = base_url {
+            println!("DEBUG: setting config base_url to {:?}", url);
             config = config.with_api_base(url);
         }
         
@@ -227,7 +255,20 @@ impl LLMProvider for OpenAIProvider {
         let api_request = api_request.build()
             .map_err(|e| ProviderError::ConfigurationError(e.to_string()))?;
         
-        let response = self.client.chat().create(api_request).await
+        let client = if request.api_key_override.is_some() || request.base_url_override.is_some() {
+            let mut config = self.client.config().clone();
+            if let Some(key) = request.api_key_override {
+                config = config.with_api_key(key);
+            }
+            if let Some(url) = request.base_url_override {
+                config = config.with_api_base(url);
+            }
+            Client::with_config(config)
+        } else {
+            self.client.clone()
+        };
+        
+        let response = client.chat().create(api_request).await
             .map_err(|e| ProviderError::ApiRequestFailed(e.to_string()))?;
         
         // Convert response back to our format
@@ -312,7 +353,20 @@ impl LLMProvider for OpenAIProvider {
         let api_request = api_request.build()
             .map_err(|e| ProviderError::ConfigurationError(e.to_string()))?;
         
-        let stream = self.client.chat().create_stream(api_request).await
+        let client = if request.api_key_override.is_some() || request.base_url_override.is_some() {
+            let mut config = self.client.config().clone();
+            if let Some(key) = request.api_key_override {
+                config = config.with_api_key(key);
+            }
+            if let Some(url) = request.base_url_override {
+                config = config.with_api_base(url);
+            }
+            Client::with_config(config)
+        } else {
+            self.client.clone()
+        };
+        
+        let stream = client.chat().create_stream(api_request).await
             .map_err(|e| ProviderError::StreamingError(e.to_string()))?;
         
         // Convert the async-openai stream to our format
@@ -558,7 +612,7 @@ mod tests {
             stream: false,
             tools: None,
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let response = provider.create_chat_completion(request).await.unwrap();
@@ -605,7 +659,7 @@ mod tests {
             stream: true,
             tools: None,
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
@@ -723,7 +777,7 @@ mod tests {
                 }
             }]),
             tool_choice: None,
-            extra_body: HashMap::new(),
+            extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let response = provider.create_chat_completion(request).await.unwrap();
@@ -749,7 +803,7 @@ mod tests {
                 tool_calls: None,
                 tool_call_id: None,
             }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
         assert!(err_provider.create_chat_completion(req2.clone()).await.is_err());
         
@@ -799,7 +853,7 @@ mod tests {
                 content: "Weather?".to_string(),
                 name: None, tool_calls: None, tool_call_id: None,
             }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let stream_res = provider.create_chat_completion_stream(request).await.unwrap();
@@ -842,7 +896,7 @@ mod tests {
         let req = ChatCompletionRequest {
             model: "gpt-4".to_string(),
             messages: vec![ChatMessage { role: MessageRole::User, content: "Hi".to_string(), name: None, tool_calls: None, tool_call_id: None }],
-            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            temperature: None, max_tokens: None, top_p: None, stop: None, stream: true, tools: None, tool_choice: None, extra_body: HashMap::new(), api_key_override: None, base_url_override: None,
         };
 
         let mut stream = provider.create_chat_completion_stream(req).await.unwrap().response;

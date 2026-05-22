@@ -10,11 +10,11 @@ serde_json = "1.0"
 tracing = "0.1"
 tiktoken-rs = "0.5"
 async-trait = "0.1.74"
-async-openai = { version = "0.18", default-features = false, features = ["rustls"] }
 futures = "0.3"
 athena-core = { path = "../athena-core" }
 athena-state = { path = "../athena-state" }
 athena-tools = { path = "../athena-tools" }
+athena-providers = { path = "../athena-providers" }
 
 [dev-dependencies]
 wiremock = "0.6"

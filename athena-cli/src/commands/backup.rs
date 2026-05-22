@@ -1,26 +1,26 @@
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_backup() {
-    println!("\nHermes Backup Utility");
+    println!("\nAthena Backup Utility");
     println!("═══════════════════════\n");
 
-    let home_dir = get_hermes_home();
+    let home_dir = get_athena_home();
     if !home_dir.exists() {
-        println!("No ~/.hermes configuration directory found at {}.", home_dir.display());
+        println!("No ~/.athena configuration directory found at {}.", home_dir.display());
         return;
     }
 
-    print!("Enter backup destination file path [default: ./hermes-backup.zip]: ");
+    print!("Enter backup destination file path [default: ./athena-backup.zip]: ");
     io::stdout().flush().ok();
-    
+
     let mut dest_str = String::new();
     io::stdin().read_line(&mut dest_str).ok();
     let mut dest_str = dest_str.trim().to_string();
     if dest_str.is_empty() {
-        dest_str = "./hermes-backup.zip".to_string();
+        dest_str = "./athena-backup.zip".to_string();
     }
 
     let dest_path = PathBuf::from(dest_str);
@@ -36,7 +36,7 @@ pub fn run_backup() {
 
     let mut zip = zip::ZipWriter::new(file);
 
-    println!("Scanning and compressing ~/.hermes files...");
+    println!("Scanning and compressing ~/.athena files...");
     match add_directory_to_zip(&mut zip, &home_dir, &home_dir) {
         Ok(()) => {
             if let Err(e) = zip.finish() {
@@ -67,7 +67,7 @@ fn add_directory_to_zip<W: Write + io::Seek>(
         if path.is_dir() {
             let relative_path = path.strip_prefix(base_path).unwrap();
             let relative_str = format!("{}/", relative_path.to_str().unwrap().replace('\\', "/"));
-            
+
             // Skip logs directory entirely
             if relative_str.starts_with("logs/") {
                 continue;

@@ -2,10 +2,13 @@ use crate::{AgentConfig, AIAgentBuilder, IterationBudget, Message, ToolCall};
 use athena_tools::{ToolRegistry};
 use tokio::task::JoinHandle;
 use tracing::{debug};
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-    types::{CreateChatCompletionRequestArgs, Role, ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage, ChatCompletionMessageToolCall, FunctionCall},
+use std::sync::Arc;
+use athena_providers::{
+    LLMProvider,
+    base::{
+        ChatCompletionRequest, ChatMessage, MessageRole, ToolDefinition,
+        ToolCall as ProviderToolCall, ToolFunction as ProviderToolFunction,
+    },
 };
 
 pub struct AIAgent {
@@ -22,11 +25,20 @@ impl AIAgent {
         &self.config.model
     }
 
+    pub fn base_url(&self) -> Option<&str> {
+        self.config.base_url.as_deref()
+    }
+
+    pub fn api_key(&self) -> Option<&str> {
+        self.config.api_key.as_deref()
+    }
+
     pub async fn run_conversation(
         &mut self,
         user_message: &str,
         system_message: Option<&str>,
         registry: &ToolRegistry,
+        provider: Arc<dyn LLMProvider>,
     ) -> Result<String, String> {
         let mut messages = Vec::new();
 
@@ -35,124 +47,95 @@ impl AIAgent {
         }
         messages.push(Message::User { content: user_message.to_string(), name: None });
 
-        let mut config = OpenAIConfig::new();
-        if let Some(ref key) = self.config.api_key {
-            config = config.with_api_key(key);
-        }
-        if let Some(ref url) = self.config.base_url {
-            config = config.with_api_base(url);
-        }
-        let client = Client::with_config(config);
-
         let mut api_call_count = 0;
 
         while self.budget.consume() {
             debug!("Starting iteration {} / {}", api_call_count, self.config.max_iterations);
             println!("🤖 [Thinking] Consulting AI model...");
 
-            // Map our strongly typed messages to async-openai's format
             let mut api_messages = Vec::new();
             for msg in &messages {
                 match msg {
                     Message::System { content } => {
-                        api_messages.push(ChatCompletionRequestSystemMessage {
-                            role: Role::System,
+                        api_messages.push(ChatMessage {
+                            role: MessageRole::System,
                             content: content.clone(),
                             name: None,
-                        }.into());
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
                     }
                     Message::User { content, name } => {
-                        api_messages.push(ChatCompletionRequestUserMessage {
-                            role: Role::User,
-                            content: async_openai::types::ChatCompletionRequestUserMessageContent::Text(content.clone()),
+                        api_messages.push(ChatMessage {
+                            role: MessageRole::User,
+                            content: content.clone(),
                             name: name.clone(),
-                        }.into());
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
                     }
                     Message::Assistant { content, tool_calls, .. } => {
-                        // Convert our internal tool calls to the format expected by async-openai.
-                        let mapped_tool_calls = tool_calls.as_ref().map(|calls| {
-                            calls.iter().map(|tc| {
-                                ChatCompletionMessageToolCall {
-                                    id: tc.id.clone(),
-                                    r#type: async_openai::types::ChatCompletionToolType::Function,
-                                    function: FunctionCall {
-                                        name: tc.function.name.clone(),
-                                        arguments: tc.function.arguments.clone(),
-                                    },
-                                }
-                            }).collect::<Vec<_>>()
+                        let provider_tool_calls = tool_calls.as_ref().map(|calls| {
+                            calls.iter().map(|tc| ProviderToolCall {
+                                id: tc.id.clone(),
+                                r#type: "function".to_string(),
+                                function: ProviderToolFunction {
+                                    name: tc.function.name.clone(),
+                                    arguments: tc.function.arguments.clone(),
+                                },
+                            }).collect()
                         });
-
-                        // Only push a message if we have either text content or tool calls.
-                        let is_empty = content.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true);
-                        let has_tool_calls = mapped_tool_calls.as_ref().map(|c| !c.is_empty()).unwrap_or(false);
-                        if !(is_empty && !has_tool_calls) {
-                            let mut builder = async_openai::types::ChatCompletionRequestAssistantMessageArgs::default();
-                            if let Some(ref text) = content {
-                                builder.content(text.clone());
-                            }
-                            if let Some(ref calls) = mapped_tool_calls {
-                                builder.tool_calls(calls.clone());
-                            }
-                            let assistant_msg = builder.build().expect("Failed to build assistant message");
-                            api_messages.push(assistant_msg.into());
-                        }
+                        
+                        api_messages.push(ChatMessage {
+                            role: MessageRole::Assistant,
+                            content: content.clone().unwrap_or_default(),
+                            name: None,
+                            tool_calls: provider_tool_calls,
+                            tool_call_id: None,
+                        });
                     }
                     Message::Tool { content, tool_call_id } => {
-                        api_messages.push(async_openai::types::ChatCompletionRequestToolMessage {
-                            role: Role::Tool,
+                        api_messages.push(ChatMessage {
+                            role: MessageRole::Tool,
                             content: content.clone(),
-                            tool_call_id: tool_call_id.clone(),
-                        }.into());
+                            name: None,
+                            tool_calls: None,
+                            tool_call_id: Some(tool_call_id.clone()),
+                        });
                     }
                 }
             }
 
-            // Get schemas for the tools we want to expose
-            // For now, we ask the registry for all tools. In future we should filter by enabled_toolsets.
-            // But let's just create an empty hashset for now which gets definitions for all.
-            // Wait, registry.get_definitions needs a set of tool names. Let's just assume we want all tools.
-            // Actually, we should ask the registry for all available definitions.
-            // We'll pass an empty list of tools to OpenAI if we have none.
             let tool_schemas = registry.get_definitions(&std::collections::HashSet::new(), true).await;
-
-            let mut request_builder = CreateChatCompletionRequestArgs::default();
-            request_builder
-                .model(&self.config.model)
-                .messages(api_messages);
-
-            // Add tools if we have them
-            // async-openai expects a specific Tool schema type, which is a bit tedious to map from serde_json::Value.
-            // We'll skip adding actual tool schemas to the request for this barebones iteration to avoid the mapping boilerplate,
-            // OR we use serde to deserialize the Value into async-openai's tool type.
+            
             let mut api_tools = Vec::new();
             for schema in tool_schemas {
-                if let Ok(tool) = serde_json::from_value::<async_openai::types::ChatCompletionTool>(schema) {
+                if let Ok(tool) = serde_json::from_value::<ToolDefinition>(schema) {
                     api_tools.push(tool);
                 }
             }
-            if !api_tools.is_empty() {
-                request_builder.tools(api_tools);
-            }
 
-            let request = match request_builder.build() {
-                Ok(req) => req,
-                Err(e) => return Err(format!("Failed to build request: {}", e)),
+            let request = ChatCompletionRequest {
+                model: self.config.model.clone(),
+                messages: api_messages,
+                temperature: None,
+                max_tokens: None,
+                top_p: None,
+                stop: None,
+                stream: false,
+                tools: if api_tools.is_empty() { None } else { Some(api_tools) },
+                tool_choice: None,
+                extra_body: std::collections::HashMap::new(),
+                api_key_override: self.config.api_key.clone(),
+                base_url_override: self.config.base_url.clone(),
             };
 
-            let response = match client.chat().create(request).await {
+            let response = match provider.create_chat_completion(request).await {
                 Ok(resp) => resp,
                 Err(e) => return Err(format!("API Error: {}", e)),
             };
 
             let choice = &response.choices[0].message;
-
-            // Convert back to our internal message format
-            let mut assistant_msg = Message::Assistant {
-                content: choice.content.clone(),
-                tool_calls: None,
-                reasoning_content: None,
-            };
 
             let mut our_tool_calls = Vec::new();
             if let Some(ref tcs) = choice.tool_calls {
@@ -166,19 +149,20 @@ impl AIAgent {
                         },
                     });
                 }
-                assistant_msg = Message::Assistant {
-                    content: choice.content.clone(),
-                    tool_calls: Some(our_tool_calls.clone()),
-                    reasoning_content: None,
-                };
             }
+
+            let assistant_msg = Message::Assistant {
+                content: if choice.content.is_empty() { None } else { Some(choice.content.clone()) },
+                tool_calls: if our_tool_calls.is_empty() { None } else { Some(our_tool_calls.clone()) },
+                reasoning_content: None,
+            };
 
             messages.push(assistant_msg);
             api_call_count += 1;
 
             if our_tool_calls.is_empty() {
                 // Done!
-                return Ok(choice.content.clone().unwrap_or_default());
+                return Ok(choice.content.clone());
             }
 
             // Execute tools concurrently
@@ -298,7 +282,8 @@ mod tests {
             .api_key("fake-key")
             .build();
 
-        let result = agent.run_conversation("Say hello", Some("System prompt"), &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Say hello", Some("System prompt"), &registry, provider).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Hello from the mocked AI!");
@@ -336,7 +321,8 @@ mod tests {
             .api_key("fake-key")
             .build();
 
-        let result = agent.run_conversation("Hello", None, &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Hello", None, &registry, provider).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Response without system");
     }
@@ -365,7 +351,8 @@ mod tests {
             .api_key("invalid-key")
             .build();
 
-        let result = agent.run_conversation("Hello", None, &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Hello", None, &registry, provider).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("API Error"));
     }
@@ -435,7 +422,8 @@ mod tests {
             .max_iterations(10)
             .build();
 
-        let result = agent.run_conversation("List files", None, &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("List files", None, &registry, provider).await;
         // Tool execution will fail for non-existent tools, but we're testing the path
         // The test verifies the code path for tool calls is exercised
         let _ = result;
@@ -483,7 +471,8 @@ mod tests {
             .max_iterations(2)
             .build();
 
-        let result = agent.run_conversation("Loop", None, &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Loop", None, &registry, provider).await;
         // Should eventually fail with max iterations or tool execution error
         assert!(result.is_err());
     }
@@ -520,9 +509,34 @@ mod tests {
             .api_key("fake-key")
             .build();
 
-        let result = agent.run_conversation("Test", None, &registry).await;
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Test", None, &registry, provider).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "");
+    }
+
+    #[tokio::test]
+    async fn test_missing_api_key_behavior() {
+        // Ensure the environment variable is not secretly allowing it to work
+        std::env::remove_var("OPENAI_API_KEY");
+
+        // Build an agent with NO api key set
+        let mut agent = AIAgent::builder()
+            .model("mistral-large-latest")
+            // We intentionally do not call .api_key() here!
+            .max_iterations(1)
+            .build();
+
+        let registry = ToolRegistry::new();
+        
+        // When we run the conversation without an API key
+        let provider = Arc::new(athena_providers::providers::openai::OpenAIProvider::new(None, None));
+        let result = agent.run_conversation("Hello", None, &registry, provider).await;
+
+        // It should immediately fail with an API Error instead of crashing
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("API Error"));
     }
 }
 

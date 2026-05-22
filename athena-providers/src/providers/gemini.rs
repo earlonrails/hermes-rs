@@ -59,10 +59,17 @@ impl LLMProvider for GeminiProvider {
         let client = reqwest::Client::new();
         let mut request = client.request(reqwest::Method::GET, &self.profile.models_url);
         
-        let key = api_key.map(|k| k.to_string())
-            .or_else(|| std::env::var("GEMINI_API_KEY").ok());
+        let mut resolved_key = api_key.map(|k| k.to_string());
+        if resolved_key.is_none() {
+            for env_var in &self.profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
             
-        if let Some(k) = key {
+        if let Some(k) = resolved_key {
             request = request.header("Authorization", format!("Bearer {}", k));
         }
         
@@ -92,8 +99,8 @@ impl LLMProvider for GeminiProvider {
         request: ChatCompletionRequest,
     ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
         let openai_provider = super::openai::OpenAIProvider::new_with_profile(
-            None, // Will use async-openai default environment variable or we should inject it
-            Some(self.profile.base_url.clone()),
+            request.api_key_override.clone(),
+            request.base_url_override.clone().or_else(|| Some(self.profile.base_url.clone())),
             self.profile.clone(),
         );
         
@@ -105,8 +112,8 @@ impl LLMProvider for GeminiProvider {
         request: ChatCompletionRequest,
     ) -> std::result::Result<ChatCompletionStream, ProviderError> {
         let openai_provider = super::openai::OpenAIProvider::new_with_profile(
-            None,
-            Some(self.profile.base_url.clone()),
+            request.api_key_override.clone(),
+            request.base_url_override.clone().or_else(|| Some(self.profile.base_url.clone())),
             self.profile.clone(),
         );
         
@@ -206,6 +213,7 @@ mod tests {
             model: "gemini".to_string(),
             messages: vec![],
             temperature: None, max_tokens: None, top_p: None, stop: None, stream: false, tools: None, tool_choice: None, extra_body: HashMap::new(),
+            api_key_override: None, base_url_override: None,
         };
         // This will fail because no mock server is set up, but it exercises the delegation code
         let _ = provider.create_chat_completion(req.clone()).await;

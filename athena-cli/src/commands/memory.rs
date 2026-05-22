@@ -2,7 +2,7 @@ use athena_core::config::{get_env_value, save_env_value};
 use std::io::{self, Write};
 
 pub fn run_memory() {
-    println!("\nHermes External Memory Provider");
+    println!("\nAthena External Memory Provider");
     println!("═════════════════════════════════\n");
     println!("Configure Honcho, Qdrant, or Pinecone semantic retrieval nodes.");
     println!();

@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct WebhookData {
@@ -17,12 +17,12 @@ struct Subscription {
 }
 
 pub fn run_webhook() {
-    println!("\nHermes Webhook Subscriptions");
+    println!("\nAthena Webhook Subscriptions");
     println!("══════════════════════════════\n");
     println!("Manage incoming and outgoing HTTP webhook hooks for third-party service dispatch.");
     println!();
 
-    let webhook_file = get_hermes_home().join("webhooks.json");
+    let webhook_file = get_athena_home().join("webhooks.json");
     let mut data = if webhook_file.exists() {
         let content = fs::read_to_string(&webhook_file).unwrap_or_default();
         serde_json::from_str::<WebhookData>(&content).unwrap_or_default()

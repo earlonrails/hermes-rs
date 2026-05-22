@@ -4,7 +4,7 @@ use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use tracing::error;
 
-pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
+pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry, provider: std::sync::Arc<dyn athena_providers::LLMProvider + Send + Sync>) {
     let mut rl = match DefaultEditor::new() {
         Ok(rl) => rl,
         Err(e) => {
@@ -14,14 +14,14 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
     };
 
     let raw_model = agent.model();
-    let provider = if raw_model.contains("claude") || raw_model.contains("opus") || raw_model.contains("sonnet") {
+    let provider_str = if raw_model.contains("claude") || raw_model.contains("opus") || raw_model.contains("sonnet") {
         " (Anthropic)"
     } else if raw_model.contains("gpt") {
         " (OpenAI)"
     } else {
         ""
     };
-    let model_display = format!("{}{}", raw_model, provider);
+    let model_display = format!("{}{}", raw_model, provider_str);
 
     println!("🦉 Athena Interactive Agent Session (v{})", env!("CARGO_PKG_VERSION"));
     println!("Active Model: {}", model_display);
@@ -49,7 +49,7 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry) {
                 
                 // For now, no persistent history passed in, just a stateless run.
                 // In a future PR we will track history.
-                match agent.run_conversation(input, Some("You are a helpful assistant."), registry).await {
+                match agent.run_conversation(input, Some("You are a helpful assistant."), registry, provider.clone()).await {
                     Ok(response) => {
                         println!("\n{}\n", response);
                     }

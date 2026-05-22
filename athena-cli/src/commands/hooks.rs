@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{self, Write};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_hooks() {
-    println!("\nHermes Shell-Script Hooks");
+    println!("\nAthena Shell-Script Hooks");
     println!("═══════════════════════════\n");
     println!("Inspect and manage local event scripts executed before or after agent turns.");
     println!();
 
-    let hooks_dir = get_hermes_home().join("hooks");
+    let hooks_dir = get_athena_home().join("hooks");
     if !hooks_dir.exists() {
         let _ = fs::create_dir_all(&hooks_dir);
     }

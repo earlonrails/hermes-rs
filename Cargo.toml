@@ -14,5 +14,5 @@ members = [
     "athena-skills",
     "athena-browser",
     "athena-multimedia"
-]
+, "apps/example-plugin"]
 resolver = "2"

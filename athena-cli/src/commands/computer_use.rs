@@ -2,7 +2,7 @@ use athena_core::config::{load_config, save_config};
 use std::io::{self, Write};
 
 pub fn run_computer_use() {
-    println!("\nHermes Computer Use Backend (CUA)");
+    println!("\nAthena Computer Use Backend (CUA)");
     println!("═══════════════════════════════════\n");
     println!("Controls local frame buffer capture, VNC connections, and mouse/keyboard drivers.");
     println!();
@@ -14,13 +14,13 @@ pub fn run_computer_use() {
     println!("Checking platform compatibility...");
     let os = std::env::consts::OS;
     println!("  • Active OS Platform: {}", os);
-    
+
     let has_xdotool = std::process::Command::new("which")
         .arg("xdotool")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
-    
+
     println!("  • Automation Driver (xdotool): {}", if has_xdotool { "AVAILABLE" } else { "NOT FOUND" });
     println!();
 

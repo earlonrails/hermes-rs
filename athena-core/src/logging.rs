@@ -1,4 +1,4 @@
-use crate::paths::get_hermes_home;
+use crate::paths::get_athena_home;
 use std::path::PathBuf;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{
@@ -19,7 +19,7 @@ pub enum Mode {
 }
 
 pub struct LoggingConfig {
-    pub hermes_home: Option<PathBuf>,
+    pub athena_home: Option<PathBuf>,
     pub level: Level,
     pub mode: Option<Mode>,
     pub force: bool,
@@ -28,7 +28,7 @@ pub struct LoggingConfig {
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
-            hermes_home: None,
+            athena_home: None,
             level: Level::INFO,
             mode: None,
             force: false,
@@ -36,9 +36,9 @@ impl Default for LoggingConfig {
     }
 }
 
-/// Setup the centralized logging for Hermes Agent.
+/// Setup the centralized logging for Athena Agent.
 pub fn setup_logging(config: LoggingConfig) -> PathBuf {
-    let home = config.hermes_home.unwrap_or_else(get_hermes_home);
+    let home = config.athena_home.unwrap_or_else(get_athena_home);
     let log_dir = home.join("logs");
 
     if !log_dir.exists() {
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn test_logging_config_default() {
         let config = LoggingConfig::default();
-        assert_eq!(config.hermes_home, None);
+        assert_eq!(config.athena_home, None);
         assert_eq!(config.level, Level::INFO);
         assert_eq!(config.mode, None);
         assert!(!config.force);
@@ -113,21 +113,21 @@ mod tests {
     #[test]
     fn test_setup_logging_creates_directories() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         let config = LoggingConfig {
-            hermes_home: Some(temp_dir.path().to_path_buf()),
+            athena_home: Some(temp_dir.path().to_path_buf()),
             level: Level::DEBUG,
             mode: None,
             force: false,
         };
-        
+
         let log_dir = setup_logging(config);
         assert!(log_dir.exists());
         assert_eq!(log_dir, temp_dir.path().join("logs"));
-        
+
         // Setup again should not fail if directory exists, and we test Mode::Gateway coverage
         let config2 = LoggingConfig {
-            hermes_home: Some(temp_dir.path().to_path_buf()),
+            athena_home: Some(temp_dir.path().to_path_buf()),
             level: Level::WARN,
             mode: Some(Mode::Gateway),
             force: false,

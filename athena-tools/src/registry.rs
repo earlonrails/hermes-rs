@@ -5,13 +5,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
-/// Trait representing a Tool in the Hermes Agent.
+/// Trait representing a Tool in the Athena Agent.
 #[async_trait]
 pub trait Tool: Send + Sync + 'static {
     fn name(&self) -> &'static str;
     fn toolset(&self) -> &'static str;
     fn schema(&self) -> Value;
-    
+
     // Default implementations for optional properties
     fn description(&self) -> String {
         self.schema()
@@ -23,10 +23,10 @@ pub trait Tool: Send + Sync + 'static {
     fn emoji(&self) -> &'static str { "⚡" }
     fn max_result_size_chars(&self) -> Option<usize> { None }
     fn requires_env(&self) -> Vec<&'static str> { vec![] }
-    
+
     /// Availability check function.
     fn check_fn(&self) -> bool { true }
-    
+
     /// Optional dynamic schema overrides.
     fn dynamic_schema_overrides(&self) -> Option<Value> { None }
 
@@ -71,7 +71,7 @@ impl ToolRegistry {
     pub async fn register(&self, tool: Arc<dyn Tool>) {
         let mut w = self.tools.write().await;
         let name = tool.name().to_string();
-        
+
         if let Some(existing) = w.get(&name) {
             if existing.toolset() != tool.toolset() {
                 error!(
@@ -254,7 +254,7 @@ mod tests {
     async fn test_registry_basics() {
         let registry = ToolRegistry::new();
         let tool = Arc::new(DummyTool);
-        
+
         // Register
         registry.register(tool.clone()).await;
         let tools = registry.get_all_tools().await;
@@ -279,7 +279,7 @@ mod tests {
         let registry = ToolRegistry::new();
         let tool = Arc::new(FailingTool);
         registry.register(tool).await;
-        
+
         let res = registry.dispatch("failing", json!({})).await;
         assert!(res.contains("Tool execution failed: failed"));
     }
@@ -338,7 +338,7 @@ mod tests {
         registry.register_toolset_alias("alias1".to_string(), "toolset1".to_string()).await;
         // Test collision warning coverage
         registry.register_toolset_alias("alias1".to_string(), "toolset2".to_string()).await;
-        
+
         let aliases = registry.toolset_aliases.read().await;
         assert_eq!(aliases.get("alias1").unwrap(), "toolset2");
     }
@@ -347,7 +347,7 @@ mod tests {
     async fn test_registry_register_collision() {
         let registry = ToolRegistry::new();
         let tool1 = Arc::new(DummyTool);
-        
+
         struct ShadowTool;
         #[async_trait]
         impl Tool for ShadowTool {
@@ -356,15 +356,15 @@ mod tests {
             fn schema(&self) -> Value { json!({}) }
             async fn handle(&self, _args: Value) -> Result<Value, String> { Ok(json!(1)) }
         }
-        
+
         registry.register(tool1).await;
         // This should be rejected
         let shadow = Arc::new(ShadowTool);
         registry.register(shadow.clone()).await;
-        
+
         assert!(shadow.schema().is_object());
         assert!(shadow.handle(json!({})).await.is_ok());
-        
+
         // Ensure dummy is still test toolset
         let defs = registry.get_all_tools().await;
         let t = defs.iter().find(|t| t.name() == "dummy").unwrap();

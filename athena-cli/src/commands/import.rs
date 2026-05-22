@@ -1,20 +1,20 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_import() {
-    println!("\nHermes Restore & Import Utility");
+    println!("\nAthena Restore & Import Utility");
     println!("═════════════════════════════════\n");
 
-    print!("Enter backup file path to restore [default: ./hermes-backup.zip]: ");
+    print!("Enter backup file path to restore [default: ./athena-backup.zip]: ");
     io::stdout().flush().ok();
-    
+
     let mut backup_str = String::new();
     io::stdin().read_line(&mut backup_str).ok();
     let mut backup_str = backup_str.trim().to_string();
     if backup_str.is_empty() {
-        backup_str = "./hermes-backup.zip".to_string();
+        backup_str = "./athena-backup.zip".to_string();
     }
 
     let backup_path = PathBuf::from(backup_str);
@@ -23,10 +23,10 @@ pub fn run_import() {
         return;
     }
 
-    let home_dir = get_hermes_home();
+    let home_dir = get_athena_home();
     print!("Are you sure you want to restore? This will overwrite existing files in {}! [y/N]: ", home_dir.display());
     io::stdout().flush().ok();
-    
+
     let mut confirm = String::new();
     io::stdin().read_line(&mut confirm).ok();
     if confirm.trim().to_lowercase() != "y" {
@@ -35,7 +35,7 @@ pub fn run_import() {
     }
 
     println!("Extracting backup into {}...", home_dir.display());
-    
+
     let file = match File::open(&backup_path) {
         Ok(f) => f,
         Err(e) => {
@@ -78,7 +78,7 @@ pub fn run_import() {
                     let _ = fs::create_dir_all(p);
                 }
             }
-            
+
             let mut outfile = match File::create(&outpath) {
                 Ok(f) => f,
                 Err(e) => {

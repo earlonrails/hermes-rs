@@ -1,13 +1,13 @@
 use std::fs;
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 
 pub fn run_curator() {
-    println!("\nHermes Background Curator Service");
+    println!("\nAthena Background Curator Service");
     println!("═══════════════════════════════════\n");
     println!("Running diagnostic indexer, active catalog updates, and temporary file sweeps...");
     println!();
 
-    let skills_dir = get_hermes_home().join("skills");
+    let skills_dir = get_athena_home().join("skills");
     let mut skills_count = 0;
     if let Ok(entries) = fs::read_dir(&skills_dir) {
         for entry in entries.flatten() {
@@ -18,7 +18,7 @@ pub fn run_curator() {
     }
     println!("  • Indexed {} custom semantic skills successfully.", skills_count);
 
-    let plugins_dir = get_hermes_home().join("plugins");
+    let plugins_dir = get_athena_home().join("plugins");
     let mut plugins_count = 0;
     if let Ok(entries) = fs::read_dir(&plugins_dir) {
         for entry in entries.flatten() {
@@ -30,7 +30,7 @@ pub fn run_curator() {
     println!("  • Indexed {} sandboxed WASM agent extensions successfully.", plugins_count);
 
     let mut cleared_bytes = 0;
-    let log_dir = get_hermes_home().join("logs");
+    let log_dir = get_athena_home().join("logs");
     if let Ok(entries) = fs::read_dir(&log_dir) {
         for entry in entries.flatten() {
             let path = entry.path();

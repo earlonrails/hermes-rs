@@ -1,21 +1,21 @@
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 use athena_core::config::{load_config, get_env_value};
 
 pub fn run_debug() {
-    println!("\nHermes Debug & Diagnostic Packager");
+    println!("\nAthena Debug & Diagnostic Packager");
     println!("═════════════════════════════════════\n");
     println!("Gathering local environment statistics, workspace directories, and model provider status...");
     println!();
 
     let mut report = String::new();
-    report.push_str("=== HERMES DEBUG REPORT ===\n\n");
+    report.push_str("=== ATHENA DEBUG REPORT ===\n\n");
 
     // 1. Version Info
     let version = env!("CARGO_PKG_VERSION");
-    let version_line = format!("Hermes Version : v{} (Rust Rewrite)\n", version);
+    let version_line = format!("Athena Version : v{} (Rust Rewrite)\n", version);
     println!("  • {}", version_line.trim());
     report.push_str(&version_line);
 
@@ -34,9 +34,9 @@ pub fn run_debug() {
         report.push_str(&exe_line);
     }
 
-    // 4. Hermes Home
-    let home = get_hermes_home();
-    let home_line = format!("Hermes Home    : {}\n", home.display());
+    // 4. Athena Home
+    let home = get_athena_home();
+    let home_line = format!("Athena Home    : {}\n", home.display());
     println!("  • {}", home_line.trim());
     report.push_str(&home_line);
 
@@ -77,7 +77,7 @@ pub fn run_debug() {
     report.push_str(&prov_report);
 
     // Write to a local file
-    let report_path = PathBuf::from("./hermes-debug-report.txt");
+    let report_path = PathBuf::from("./athena-debug-report.txt");
     if let Ok(mut file) = File::create(&report_path) {
         if file.write_all(report.as_bytes()).is_ok() {
             println!("\n✓ Diagnostic report generated successfully!");

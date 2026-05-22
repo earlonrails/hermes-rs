@@ -218,6 +218,8 @@ pub struct ChatCompletionRequest {
     pub tools: Option<Vec<ToolDefinition>>,
     pub tool_choice: Option<ToolChoice>,
     pub extra_body: HashMap<String, serde_json::Value>,
+    pub api_key_override: Option<String>,
+    pub base_url_override: Option<String>,
 }
 
 /// Message in a chat

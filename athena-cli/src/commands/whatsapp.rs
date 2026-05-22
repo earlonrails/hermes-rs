@@ -2,7 +2,7 @@ use athena_core::config::{load_config, save_config};
 use std::io::{self, Write};
 
 pub fn run_whatsapp() {
-    println!("\nHermes WhatsApp Integration");
+    println!("\nAthena WhatsApp Integration");
     println!("═════════════════════════════\n");
     println!("WhatsApp integration utilizes the whatsapp-web.js bridge to interact with clients.");
     println!();
@@ -41,7 +41,7 @@ pub fn run_whatsapp() {
         3 => {
             println!("\n--- Pairing Instructions ---");
             println!("1. Ensure Node.js and whatsapp-web.js are installed on your gateway system.");
-            println!("2. Run the gateway service using: 'hermes gateway --platform whatsapp'.");
+            println!("2. Run the gateway service using: 'athena gateway --platform whatsapp'.");
             println!("3. Scan the terminal-rendered QR code with your WhatsApp mobile application.");
         }
         _ => {}

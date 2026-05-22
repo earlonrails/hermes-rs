@@ -1,10 +1,10 @@
 use athena_core::config::{load_config, save_config};
-use athena_core::paths::get_hermes_home;
+use athena_core::paths::get_athena_home;
 use std::io::{self, Write};
 use std::fs;
 
 pub fn run_slack() {
-    println!("\nHermes Slack Integration");
+    println!("\nAthena Slack Integration");
     println!("══════════════════════════\n");
     println!("Provides helpers for generating Slack Manifest JSON files and enabling the bot gateway.");
     println!();
@@ -43,11 +43,11 @@ pub fn run_slack() {
         3 => {
             let manifest = r#"{
     "display_information": {
-        "name": "Hermes Agent"
+        "name": "Athena Agent"
     },
     "features": {
         "bot_user": {
-            "display_name": "Hermes",
+            "display_name": "Athena",
             "always_online": true
         }
     },
@@ -70,7 +70,7 @@ pub fn run_slack() {
         }
     }
 }"#;
-            let path = get_hermes_home().join("slack-manifest.json");
+            let path = get_athena_home().join("slack-manifest.json");
             match fs::write(&path, manifest) {
                 Ok(()) => {
                     println!("  ✓ Generated Slack Manifest template successfully!");

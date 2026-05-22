@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 static PROFILE_FALLBACK_WARNED: AtomicBool = AtomicBool::new(false);
 
 /// Return the Athena home directory (default: ~/.athena).
-pub fn get_hermes_home() -> PathBuf {
+pub fn get_athena_home() -> PathBuf {
     if let Ok(val) = env::var("ATHENA_HOME") {
         let trimmed = val.trim();
         if !trimmed.is_empty() {
@@ -41,16 +41,16 @@ pub fn get_hermes_home() -> PathBuf {
         .join(".athena")
 }
 
-pub fn get_default_hermes_root() -> PathBuf {
+pub fn get_default_athena_root() -> PathBuf {
     let native_home = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".athena");
-        
+
     let env_home = env::var("ATHENA_HOME").unwrap_or_default();
     if env_home.is_empty() {
         return native_home;
     }
-    
+
     let env_path = PathBuf::from(env_home);
     if let Ok(env_resolved) = env_path.canonicalize() {
         if let Ok(native_resolved) = native_home.canonicalize() {
@@ -81,11 +81,11 @@ pub fn get_optional_skills_dir(default: Option<PathBuf>) -> PathBuf {
     if let Some(def) = default {
         return def;
     }
-    get_hermes_home().join("optional-skills")
+    get_athena_home().join("optional-skills")
 }
 
-pub fn get_hermes_dir(new_subpath: &str, old_name: &str) -> PathBuf {
-    let home = get_hermes_home();
+pub fn get_athena_dir(new_subpath: &str, old_name: &str) -> PathBuf {
+    let home = get_athena_home();
     let old_path = home.join(old_name);
     if old_path.exists() {
         old_path
@@ -94,8 +94,8 @@ pub fn get_hermes_dir(new_subpath: &str, old_name: &str) -> PathBuf {
     }
 }
 
-pub fn display_hermes_home() -> String {
-    let home = get_hermes_home();
+pub fn display_athena_home() -> String {
+    let home = get_athena_home();
     if let Some(user_home) = dirs::home_dir() {
         if let Ok(stripped) = home.strip_prefix(&user_home) {
             let mut s = String::from("~/");
@@ -147,15 +147,15 @@ pub fn is_container() -> bool {
 // ─── Well-Known Paths ──────────────────────────────────────────────────────
 
 pub fn get_config_path() -> PathBuf {
-    get_hermes_home().join("config.yaml")
+    get_athena_home().join("config.yaml")
 }
 
 pub fn get_skills_dir() -> PathBuf {
-    get_hermes_home().join("skills")
+    get_athena_home().join("skills")
 }
 
 pub fn get_env_path() -> PathBuf {
-    get_hermes_home().join(".env")
+    get_athena_home().join(".env")
 }
 
 pub const OPENROUTER_BASE_URL: &str = "https://openrouter.ai/api/v1";
@@ -179,21 +179,21 @@ mod tests {
     }
 
     #[test]
-    fn test_get_hermes_home() {
+    fn test_get_athena_home() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
-        let home = get_hermes_home();
+
+        let home = get_athena_home();
         assert_eq!(home, dir.path());
     }
 
     #[test]
-    fn test_get_default_hermes_root() {
+    fn test_get_default_athena_root() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _dir = setup_test_env();
-        
-        let root = get_default_hermes_root();
-        // get_default_hermes_root() handles canonicalization matching. 
+
+        let root = get_default_athena_root();
+        // get_default_athena_root() handles canonicalization matching.
         // We just ensure it resolves without crashing.
         assert!(root.exists() || !root.as_os_str().is_empty());
     }
@@ -202,26 +202,26 @@ mod tests {
     fn test_get_optional_skills_dir() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
+
         let skills = get_optional_skills_dir(None);
         assert_eq!(skills, dir.path().join("optional-skills"));
-        
+
         env::set_var("ATHENA_OPTIONAL_SKILLS", "/custom/skills");
         let custom = get_optional_skills_dir(None);
         assert_eq!(custom, PathBuf::from("/custom/skills"));
     }
 
     #[test]
-    fn test_get_hermes_dir() {
+    fn test_get_athena_dir() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
-        let new_dir = get_hermes_dir("new_tools", "old_tools");
+
+        let new_dir = get_athena_dir("new_tools", "old_tools");
         assert_eq!(new_dir, dir.path().join("new_tools"));
-        
+
         // Create old dir
         fs::create_dir_all(dir.path().join("old_tools")).unwrap();
-        let fallback_dir = get_hermes_dir("new_tools", "old_tools");
+        let fallback_dir = get_athena_dir("new_tools", "old_tools");
         assert_eq!(fallback_dir, dir.path().join("old_tools"));
     }
 
@@ -229,10 +229,10 @@ mod tests {
     fn test_subprocess_home() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
+
         // Subprocess home expects $ATHENA_HOME/home to exist
         assert_eq!(get_subprocess_home(), None);
-        
+
         let profile_home = dir.path().join("home");
         fs::create_dir_all(&profile_home).unwrap();
         assert_eq!(get_subprocess_home(), Some(profile_home));
@@ -242,12 +242,12 @@ mod tests {
     fn test_well_known_paths() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
-        
+
         assert_eq!(get_config_path(), dir.path().join("config.yaml"));
         assert_eq!(get_skills_dir(), dir.path().join("skills"));
         assert_eq!(get_env_path(), dir.path().join(".env"));
     }
-    
+
     #[test]
     fn test_environment_flags() {
         // Just executing these to ensure they don't panic. Environment can vary.
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_default_hermes_root_with_env_set() {
+    fn test_get_default_athena_root_with_env_set() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
 
@@ -265,27 +265,27 @@ mod tests {
         let custom_home = dir.path().join("profiles").join("test");
         env::set_var("ATHENA_HOME", &custom_home);
 
-        let root = get_default_hermes_root();
+        let root = get_default_athena_root();
         // Should return the grandparent when ATHENA_HOME is under profiles
         assert_eq!(root, dir.path());
     }
 
     #[test]
-    fn test_get_default_hermes_root_canonicalization() {
+    fn test_get_default_athena_root_canonicalization() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
 
         // Create a symlink scenario
-        let symlink_path = dir.path().join("hermes_link");
+        let symlink_path = dir.path().join("athena_link");
         #[cfg(unix)]
         {
             use std::os::unix::fs::symlink;
-            let target = dir.path().join("real_hermes");
+            let target = dir.path().join("real_athena");
             std::fs::create_dir_all(&target).unwrap();
             symlink(&target, &symlink_path).unwrap();
             env::set_var("ATHENA_HOME", &symlink_path);
 
-            let root = get_default_hermes_root();
+            let root = get_default_athena_root();
             // Should resolve symlinks and detect if under native home
             assert!(root.exists() || !root.as_os_str().is_empty());
         }
@@ -296,7 +296,7 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
 
-        // We want get_hermes_home to fall back to dirs::home_dir()
+        // We want get_athena_home to fall back to dirs::home_dir()
         env::remove_var("ATHENA_HOME");
         // We must override HOME so dirs::home_dir() resolves to our temp dir!
         env::set_var("HOME", dir.path());
@@ -310,15 +310,15 @@ mod tests {
         // Clear the warning flag
         PROFILE_FALLBACK_WARNED.store(false, Ordering::Relaxed);
 
-        // Call get_hermes_home - should trigger warning because ATHENA_HOME is unset
-        let _home = get_hermes_home();
+        // Call get_athena_home - should trigger warning because ATHENA_HOME is unset
+        let _home = get_athena_home();
 
         // Warning should have been printed and flag set
         assert!(PROFILE_FALLBACK_WARNED.load(Ordering::Relaxed));
     }
 
     #[test]
-    fn test_get_hermes_dir_old_path_exists() {
+    fn test_get_athena_dir_old_path_exists() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
 
@@ -326,7 +326,7 @@ mod tests {
         let old_path = dir.path().join("old_tools");
         std::fs::create_dir_all(&old_path).unwrap();
 
-        let result = get_hermes_dir("new_tools", "old_tools");
+        let result = get_athena_dir("new_tools", "old_tools");
         assert_eq!(result, old_path);
     }
 
@@ -347,12 +347,12 @@ mod tests {
 
         // 1. ATHENA_HOME set to empty/whitespace
         env::set_var("ATHENA_HOME", "   ");
-        let home = get_hermes_home();
+        let home = get_athena_home();
         assert!(home.ends_with(".athena")); // Falls back to native ~/.athena
 
-        // 2. get_default_hermes_root empty env_home
+        // 2. get_default_athena_root empty env_home
         env::set_var("ATHENA_HOME", "");
-        let root = get_default_hermes_root();
+        let root = get_default_athena_root();
         assert!(root.ends_with(".athena")); // Falls back to native
 
         // 3. get_optional_skills_dir empty override
@@ -362,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn test_display_hermes_home_no_strip_prefix() {
+    fn test_display_athena_home_no_strip_prefix() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = setup_test_env();
 
@@ -371,7 +371,7 @@ mod tests {
         env::set_var("HOME", "/tmp/completely/different/path/that/does/not/match");
         env::set_var("ATHENA_HOME", "/var/lib/athena");
 
-        let display = display_hermes_home();
+        let display = display_athena_home();
         // It shouldn't use ~/ because it's not in the user's home dir
         assert_eq!(display, "/var/lib/athena");
     }

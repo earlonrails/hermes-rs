@@ -239,6 +239,8 @@ mod tests {
             tools: None,
             tool_choice: None,
             extra_body: std::collections::HashMap::new(),
+            api_key_override: None,
+            base_url_override: None,
         };
         
         assert!(provider.create_chat_completion(req.clone()).await.is_err());

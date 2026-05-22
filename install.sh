@@ -9,7 +9,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=======================================${NC}"
-echo -e "${BLUE}      Hermes-RS Installation Script    ${NC}"
+echo -e "${BLUE}      Athena Installation Script    ${NC}"
 echo -e "${BLUE}=======================================${NC}"
 echo ""
 
@@ -24,7 +24,7 @@ if ! command -v cargo &> /dev/null; then
         # Source the cargo env for the remainder of this script
         source "$HOME/.cargo/env"
     else
-        echo -e "${RED}Installation aborted. Rust is required to compile Hermes-RS.${NC}"
+        echo -e "${RED}Installation aborted. Rust is required to compile Athena.${NC}"
         exit 1
     fi
 else
@@ -32,33 +32,33 @@ else
 fi
 
 # 2. Determine installation directory
-INSTALL_DIR=${INSTALL_DIR:-"$HOME/.hermes-rs"}
-REPO_URL="https://github.com/earlonrails/hermes-rs.git" # Update with actual URL
+INSTALL_DIR=${INSTALL_DIR:-"$HOME/.athena"}
+REPO_URL="https://github.com/earlonrails/athena.git" # Update with actual URL
 
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}Hermes-RS directory already exists at $INSTALL_DIR.${NC}"
+    echo -e "${YELLOW}Athena directory already exists at $INSTALL_DIR.${NC}"
     echo -e "Pulling latest changes..."
     cd "$INSTALL_DIR"
     git pull origin main
 else
-    echo -e "${GREEN}Cloning Hermes-RS repository...${NC}"
+    echo -e "${GREEN}Cloning Athena repository...${NC}"
     git clone "$REPO_URL" "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
 # 3. Build and Install the CLI
-echo -e "${GREEN}Compiling Hermes-RS (this may take a few minutes)...${NC}"
+echo -e "${GREEN}Compiling Athena (this may take a few minutes)...${NC}"
 cargo install --path athena-cli --locked
 
 # 4. Final instructions
 echo ""
 echo -e "${GREEN}=======================================${NC}"
-echo -e "${GREEN}    Hermes-RS successfully installed!  ${NC}"
+echo -e "${GREEN}    Athena successfully installed!  ${NC}"
 echo -e "${GREEN}=======================================${NC}"
 echo ""
-echo -e "The 'hermes' command-line tool has been installed to your cargo bin directory (usually ~/.cargo/bin)."
+echo -e "The 'athena' command-line tool has been installed to your cargo bin directory (usually ~/.cargo/bin)."
 echo -e "Make sure this directory is in your system's PATH."
 echo ""
 echo -e "To get started, simply run:"
-echo -e "  ${YELLOW}hermes --help${NC}"
+echo -e "  ${YELLOW}athena --help${NC}"
 echo ""
