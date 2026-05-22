@@ -1,53 +1,57 @@
 use athena_core::config::{load_config, save_config};
-use std::io::{self, Write};
+use cliclack::{intro, select, input, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_config_show() {
+pub fn run_config_show() -> Result<()> {
     let config = load_config();
-    println!("\nCurrent Athena Configuration:");
-    println!("═════════════════════════════════");
-    println!("  Profile:          {:?}", config.active_profile.as_deref().unwrap_or("default"));
-    println!("  Active Provider:  {}", config.model.provider);
-    println!("  Default Model:    {}", config.model.default);
-    println!("  Terminal Backend: {}", config.terminal_backend);
-    println!("  Max Iterations:   {}", config.agent.max_iterations);
-    println!("  Telegram Enabled: {}", config.gateway.telegram_enabled);
-    println!("  Discord Enabled:  {}", config.gateway.discord_enabled);
-    println!("  Slack Enabled:    {}", config.gateway.slack_enabled);
-    println!("  WhatsApp Enabled: {}", config.gateway.whatsapp_enabled);
-    println!("  Config Version:   {}", config.config_version);
-    println!("═════════════════════════════════\n");
+    intro("Current Athena Configuration")?;
+    let mut details = String::new();
+    details.push_str(&format!("Profile:          {:?}\n", config.active_profile.as_deref().unwrap_or("default")));
+    details.push_str(&format!("Active Provider:  {}\n", config.model.provider));
+    details.push_str(&format!("Default Model:    {}\n", config.model.default));
+    details.push_str(&format!("Terminal Backend: {}\n", config.terminal_backend));
+    details.push_str(&format!("Max Iterations:   {}\n", config.agent.max_iterations));
+    details.push_str(&format!("Telegram Enabled: {}\n", config.gateway.telegram_enabled));
+    details.push_str(&format!("Discord Enabled:  {}\n", config.gateway.discord_enabled));
+    details.push_str(&format!("Slack Enabled:    {}\n", config.gateway.slack_enabled));
+    details.push_str(&format!("WhatsApp Enabled: {}\n", config.gateway.whatsapp_enabled));
+    details.push_str(&format!("Config Version:   {}", config.config_version));
+    
+    note("Configuration Details", details)?;
+    Ok(())
 }
 
-pub fn run_config_edit() {
-    println!("\nEdit Configuration Fields");
-    println!("═══════════════════════════\n");
+pub fn run_config_edit() -> Result<()> {
+    intro("Edit Configuration Fields")?;
 
     let mut config = load_config();
 
-    print!("  Change Terminal Backend (current: {}) [local/docker/ssh/modal]: ", config.terminal_backend);
-    io::stdout().flush().ok();
-    let mut backend = String::new();
-    io::stdin().read_line(&mut backend).ok();
-    let backend = backend.trim();
-    if !backend.is_empty() && (backend == "local" || backend == "docker" || backend == "ssh" || backend == "modal") {
+    let backend: String = select(format!("Change Terminal Backend (current: {})", config.terminal_backend))
+        .item("local".to_string(), "local", "")
+        .item("docker".to_string(), "docker", "")
+        .item("ssh".to_string(), "ssh", "")
+        .item("modal".to_string(), "modal", "")
+        .interact()?;
+        
+    if backend != config.terminal_backend {
         config.terminal_backend = backend.to_string();
-        println!("  ✓ Terminal backend updated.");
     }
 
-    print!("  Change Max Iterations (current: {}): ", config.agent.max_iterations);
-    io::stdout().flush().ok();
-    let mut iterations = String::new();
-    io::stdin().read_line(&mut iterations).ok();
+    let default_val = config.agent.max_iterations.to_string();
+    let iterations: String = input(format!("Change Max Iterations (current: {})", config.agent.max_iterations))
+        .default_input(&default_val)
+        .interact()?;
+        
     let iterations = iterations.trim();
     if !iterations.is_empty() {
         if let Ok(num) = iterations.parse::<u32>() {
             config.agent.max_iterations = num;
-            println!("  ✓ Max iterations updated.");
         }
     }
 
     match save_config(&config) {
-        Ok(()) => println!("\n✓ Config successfully updated at ~/.athena/config.yaml"),
-        Err(e) => println!("\n✗ Failed to save config: {}", e),
+        Ok(()) => outro("Config successfully updated at ~/.athena/config.yaml")?,
+        Err(e) => outro_cancel(format!("Failed to save config: {}", e))?,
     }
+    Ok(())
 }

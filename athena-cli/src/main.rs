@@ -331,7 +331,9 @@ async fn main() {
             println!("Listing toolsets feature not yet implemented");
         }
         Some(Commands::ConfigShow) => {
-            commands::config::run_config_show();
+            if let Err(e) = commands::config::run_config_show() {
+                eprintln!("Error: {}", e);
+            }
         }
 
         Some(Commands::Chat) => {
@@ -342,10 +344,14 @@ async fn main() {
             interactive::run_interactive_loop(agent, &registry, provider).await;
         }
         Some(Commands::Model) => {
-            commands::model::run_model();
+            if let Err(e) = commands::model::run_model() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Fallback) => {
-            commands::fallback::run_fallback();
+            if let Err(e) = commands::fallback::run_fallback() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Gateway) => {
             commands::gateway::run_gateway();
@@ -359,34 +365,52 @@ async fn main() {
             }
         }
         Some(Commands::Whatsapp) => {
-            commands::whatsapp::run_whatsapp();
+            if let Err(e) = commands::whatsapp::run_whatsapp() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Slack) => {
-            commands::slack::run_slack();
+            if let Err(e) = commands::slack::run_slack() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Login) => {
-            commands::login::run_login();
+            if let Err(e) = commands::login::run_login() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Logout) => {
-            commands::login::run_logout();
+            if let Err(e) = commands::login::run_logout() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Auth) => {
-            commands::auth::run_auth();
+            if let Err(e) = commands::auth::run_auth() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Status) => {
             commands::status::run_status();
         }
         Some(Commands::Cron) => {
-            commands::cron::run_cron();
+            if let Err(e) = commands::cron::run_cron() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Webhook) => {
-            commands::webhook::run_webhook();
+            if let Err(e) = commands::webhook::run_webhook() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Kanban) => {
-            commands::kanban::run_kanban();
+            if let Err(e) = commands::kanban::run_kanban() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Hooks) => {
-            commands::hooks::run_hooks();
+            if let Err(e) = commands::hooks::run_hooks() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Doctor) => {
             commands::doctor::run_doctor();
@@ -398,22 +422,32 @@ async fn main() {
             commands::debug::run_debug();
         }
         Some(Commands::Backup) => {
-            commands::backup::run_backup();
+            if let Err(e) = commands::backup::run_backup() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Checkpoints) => {
             commands::checkpoints::run_checkpoints();
         }
         Some(Commands::Import) => {
-            commands::import::run_import();
+            if let Err(e) = commands::import::run_import() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Config) => {
-            commands::config::run_config_edit();
+            if let Err(e) = commands::config::run_config_edit() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Pairing) => {
-            commands::pairing::run_pairing();
+            if let Err(e) = commands::pairing::run_pairing() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Skills) => {
-            commands::skills::run_skills();
+            if let Err(e) = commands::skills::run_skills() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Plugins) => {
             commands::plugins::run_plugins();
@@ -422,10 +456,14 @@ async fn main() {
             commands::curator::run_curator();
         }
         Some(Commands::Memory) => {
-            commands::memory::run_memory();
+            if let Err(e) = commands::memory::run_memory() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Tools) => {
-            commands::tools::run_tools();
+            if let Err(e) = commands::tools::run_tools() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::ComputerUse) => {
             commands::computer_use::run_computer_use();
@@ -439,7 +477,9 @@ async fn main() {
             }
         }
         Some(Commands::Sessions) => {
-            commands::sessions::run_sessions();
+            if let Err(e) = commands::sessions::run_sessions() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Insights) => {
             commands::insights::run_insights();
@@ -454,7 +494,9 @@ async fn main() {
             commands::update::run_update();
         }
         Some(Commands::Uninstall) => {
-            commands::uninstall::run_uninstall();
+            if let Err(e) = commands::uninstall::run_uninstall() {
+                eprintln!("Error: {}", e);
+            }
         }
         Some(Commands::Acp) => {
             commands::acp::run_acp();
@@ -469,7 +511,9 @@ async fn main() {
             commands::dashboard::run_dashboard();
         }
         Some(Commands::Logs) => {
-            commands::logs::run_logs();
+            if let Err(e) = commands::logs::run_logs() {
+                eprintln!("Error: {}", e);
+            }
         }
         None => {
             // Run interactive mode

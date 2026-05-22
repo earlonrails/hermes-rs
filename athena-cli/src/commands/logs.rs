@@ -1,15 +1,16 @@
 use std::fs;
-use std::io::{self, BufRead, BufReader};
+use std::io::{BufRead, BufReader};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_logs() {
-    println!("\nAthena Log Viewer");
-    println!("═══════════════════\n");
+pub fn run_logs() -> Result<()> {
+    intro("Athena Log Viewer")?;
 
     let log_dir = get_athena_home().join("logs");
     if !log_dir.exists() {
-        println!("No logs directory found at {}.", log_dir.display());
-        return;
+        outro_cancel(format!("No logs directory found at {}.", log_dir.display()))?;
+        return Ok(());
     }
 
     let mut entries = Vec::new();
@@ -31,46 +32,38 @@ pub fn run_logs() {
     }
 
     if entries.is_empty() {
-        println!("No log files found in {}.", log_dir.display());
-        return;
+        outro_cancel(format!("No log files found in {}.", log_dir.display()))?;
+        return Ok(());
     }
 
-    // Sort by modified time descending (newest first)
     entries.sort_by(|a, b| b.2.cmp(&a.2));
 
-    println!("Select a log file to view:");
+    let mut select_prompt = select("Select a log file to view:");
     for (i, (_, filename, _)) in entries.iter().enumerate() {
-        println!("  {}. {}", i + 1, filename);
+        select_prompt = select_prompt.item(i, filename.clone(), "");
     }
-    println!();
-
-    print!("  Choice [1-{}]: ", entries.len());
-    use std::io::Write;
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(1);
-
-    if choice == 0 || choice > entries.len() {
-        println!("Invalid choice.");
-        return;
-    }
-
-    let (selected_path, selected_name, _) = &entries[choice - 1];
-    println!("\n--- Showing last 50 lines of {} ---", selected_name);
+    
+    let choice: usize = select_prompt.interact()?;
+    let (selected_path, selected_name, _) = &entries[choice];
 
     if let Ok(file) = fs::File::open(selected_path) {
         let reader = BufReader::new(file);
         let lines: Vec<String> = reader.lines().flatten().collect();
         let start = lines.len().saturating_sub(50);
+        
+        let mut log_content = String::new();
         for line in &lines[start..] {
-            println!("{}", line);
+            log_content.push_str(&format!("{}\n", line));
         }
+        
         if lines.is_empty() {
-            println!("(Empty file)");
+            note(format!("Showing last 50 lines of {}", selected_name), "(Empty file)")?;
+        } else {
+            note(format!("Showing last 50 lines of {}", selected_name), log_content.trim_end())?;
         }
     } else {
-        println!("Failed to open log file.");
+        outro_cancel("Failed to open log file.")?;
     }
+    
+    Ok(())
 }

@@ -1,54 +1,48 @@
 use std::fs::{self, File};
-use std::io::{self, Write};
 use std::path::PathBuf;
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, input, confirm, outro, outro_cancel, spinner};
+use anyhow::Result;
 
-pub fn run_import() {
-    println!("\nAthena Restore & Import Utility");
-    println!("═════════════════════════════════\n");
+pub fn run_import() -> Result<()> {
+    intro("Athena Restore & Import Utility")?;
 
-    print!("Enter backup file path to restore [default: ./athena-backup.zip]: ");
-    io::stdout().flush().ok();
-
-    let mut backup_str = String::new();
-    io::stdin().read_line(&mut backup_str).ok();
-    let mut backup_str = backup_str.trim().to_string();
-    if backup_str.is_empty() {
-        backup_str = "./athena-backup.zip".to_string();
-    }
+    let backup_str: String = input("Enter backup file path to restore")
+        .default_input("./athena-backup.zip")
+        .interact()?;
+    let backup_str = backup_str.trim().to_string();
 
     let backup_path = PathBuf::from(backup_str);
     if !backup_path.exists() {
-        println!("✗ Backup file {} does not exist.", backup_path.display());
-        return;
+        outro_cancel(format!("Backup file {} does not exist.", backup_path.display()))?;
+        return Ok(());
     }
 
     let home_dir = get_athena_home();
-    print!("Are you sure you want to restore? This will overwrite existing files in {}! [y/N]: ", home_dir.display());
-    io::stdout().flush().ok();
+    let confirm_restore: bool = confirm(format!("Are you sure you want to restore? This will overwrite existing files in {}!", home_dir.display()))
+        .interact()?;
 
-    let mut confirm = String::new();
-    io::stdin().read_line(&mut confirm).ok();
-    if confirm.trim().to_lowercase() != "y" {
-        println!("Restore cancelled.");
-        return;
+    if !confirm_restore {
+        outro_cancel("Restore cancelled.")?;
+        return Ok(());
     }
 
-    println!("Extracting backup into {}...", home_dir.display());
+    let mut s = spinner();
+    s.start(format!("Extracting backup into {}...", home_dir.display()));
 
     let file = match File::open(&backup_path) {
         Ok(f) => f,
         Err(e) => {
-            println!("✗ Failed to open backup file: {}", e);
-            return;
+            s.error(format!("Failed to open backup file: {}", e));
+            return Ok(());
         }
     };
 
     let mut archive = match zip::ZipArchive::new(file) {
         Ok(a) => a,
         Err(e) => {
-            println!("✗ Failed to parse zip archive: {}", e);
-            return;
+            s.error(format!("Failed to parse zip archive: {}", e));
+            return Ok(());
         }
     };
 
@@ -59,10 +53,7 @@ pub fn run_import() {
     for i in 0..archive.len() {
         let mut file = match archive.by_index(i) {
             Ok(f) => f,
-            Err(e) => {
-                println!("✗ Error reading file index {}: {}", i, e);
-                continue;
-            }
+            Err(_) => continue,
         };
 
         let outpath = match file.enclosed_name() {
@@ -81,17 +72,14 @@ pub fn run_import() {
 
             let mut outfile = match File::create(&outpath) {
                 Ok(f) => f,
-                Err(e) => {
-                    println!("✗ Failed to create file {}: {}", outpath.display(), e);
-                    continue;
-                }
+                Err(_) => continue,
             };
 
-            if let Err(e) = std::io::copy(&mut file, &mut outfile) {
-                println!("✗ Failed to write file {}: {}", outpath.display(), e);
-            }
+            let _ = std::io::copy(&mut file, &mut outfile);
         }
     }
 
-    println!("\n✓ Restore completed successfully!");
+    s.stop("Restore completed successfully!");
+    
+    Ok(())
 }

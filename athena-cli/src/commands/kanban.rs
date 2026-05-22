@@ -1,7 +1,8 @@
 use std::fs;
-use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, input, outro, outro_cancel};
+use anyhow::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct KanbanBoard {
@@ -16,11 +17,8 @@ struct TaskItem {
     assignee: Option<String>,
 }
 
-pub fn run_kanban() {
-    println!("\nAthena Collaboration Kanban Board");
-    println!("═══════════════════════════════════\n");
-    println!("View, assign, and transition multi-agent tasks.");
-    println!();
+pub fn run_kanban() -> Result<()> {
+    intro("Athena Collaboration Kanban Board")?;
 
     let kanban_file = get_athena_home().join("kanban.json");
     let mut board = if kanban_file.exists() {
@@ -30,56 +28,41 @@ pub fn run_kanban() {
         KanbanBoard::default()
     };
 
-    println!("Options:");
-    println!("  1. View Kanban Board");
-    println!("  2. Add new Task");
-    println!("  3. Move Task status");
-    println!("  4. Delete Task");
-    println!("  5. Exit");
-    println!();
-
-    print!("  Choice [1-5]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(5);
+    let choice: usize = select("View, assign, and transition multi-agent tasks")
+        .item(1, "View Kanban Board", "")
+        .item(2, "Add new Task", "")
+        .item(3, "Move Task status", "")
+        .item(4, "Delete Task", "")
+        .item(5, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            println!("\n--- KANBAN BOARD ---");
+            let mut output = String::from("\n--- KANBAN BOARD ---\n");
             let columns = ["Todo", "In Progress", "Done"];
             for col in &columns {
-                println!("\n  [{}]", col.to_uppercase());
+                output.push_str(&format!("\n  [{}]\n", col.to_uppercase()));
                 let col_tasks: Vec<&TaskItem> = board.tasks.iter().filter(|t| t.status == *col).collect();
                 if col_tasks.is_empty() {
-                    println!("    (No tasks)");
+                    output.push_str("    (No tasks)\n");
                 } else {
                     for task in col_tasks {
                         let assignee = task.assignee.as_deref().unwrap_or("unassigned");
-                        println!("    #{}: {} (Assigned to: {})", task.id, task.title, assignee);
+                        output.push_str(&format!("    #{}: {} (Assigned to: {})\n", task.id, task.title, assignee));
                     }
                 }
             }
-            println!("\n--------------------");
+            output.push_str("\n--------------------");
+            outro(output)?;
         }
         2 => {
-            println!("\nAdd New Task");
-            print!("  Enter task title: ");
-            io::stdout().flush().ok();
-            let mut title = String::new();
-            io::stdin().read_line(&mut title).ok();
-            let title = title.trim().to_string();
-
+            let title: String = input("Enter task title").interact()?;
             if title.is_empty() {
-                println!("  ✗ Task title cannot be empty.");
-                return;
+                outro_cancel("Task title cannot be empty.")?;
+                return Ok(());
             }
 
-            print!("  Enter assignee (optional): ");
-            io::stdout().flush().ok();
-            let mut assignee_in = String::new();
-            io::stdin().read_line(&mut assignee_in).ok();
+            let assignee_in: String = input("Enter assignee (optional)").interact()?;
             let assignee = if assignee_in.trim().is_empty() {
                 None
             } else {
@@ -96,70 +79,61 @@ pub fn run_kanban() {
 
             if let Ok(serialized) = serde_json::to_string_pretty(&board) {
                 let _ = fs::write(&kanban_file, serialized);
-                println!("  ✓ Successfully added task #{}", next_id);
+                outro(format!("Successfully added task #{}", next_id))?;
             }
         }
         3 => {
             if board.tasks.is_empty() {
-                println!("\n  No tasks on the board.");
-                return;
+                outro_cancel("No tasks on the board.")?;
+                return Ok(());
             }
 
-            print!("  Enter Task ID to move: ");
-            io::stdout().flush().ok();
-            let mut id_str = String::new();
-            io::stdin().read_line(&mut id_str).ok();
-            let id = id_str.trim().parse::<usize>().unwrap_or(0);
+            let mut select_prompt = select("Select Task to move");
+            for task in &board.tasks {
+                select_prompt = select_prompt.item(task.id, format!("#{} - {}", task.id, task.title), &task.status);
+            }
+            let id: usize = select_prompt.interact()?;
 
             if let Some(task) = board.tasks.iter_mut().find(|t| t.id == id) {
-                println!("  Current status: {}", task.status);
-                println!("  Select new status:");
-                println!("    1. Todo");
-                println!("    2. In Progress");
-                println!("    3. Done");
-                print!("    Choice [1-3]: ");
-                io::stdout().flush().ok();
+                let status: String = select(format!("Current status: {}. Select new status", task.status))
+                    .item("Todo".to_string(), "Todo", "")
+                    .item("In Progress".to_string(), "In Progress", "")
+                    .item("Done".to_string(), "Done", "")
+                    .interact()?;
 
-                let mut stat_choice = String::new();
-                io::stdin().read_line(&mut stat_choice).ok();
-                let status = match stat_choice.trim().parse::<usize>().unwrap_or(1) {
-                    1 => "Todo",
-                    2 => "In Progress",
-                    3 => "Done",
-                    _ => "Todo",
-                };
-
-                task.status = status.to_string();
+                task.status = status.clone();
                 if let Ok(serialized) = serde_json::to_string_pretty(&board) {
                     let _ = fs::write(&kanban_file, serialized);
-                    println!("  ✓ Task #{} moved to status [{}].", id, status);
+                    outro(format!("Task #{} moved to status [{}].", id, status))?;
                 }
             } else {
-                println!("  ✗ Task #{} not found.", id);
+                outro_cancel(format!("Task #{} not found.", id))?;
             }
         }
         4 => {
             if board.tasks.is_empty() {
-                println!("\n  No tasks to delete.");
-                return;
+                outro_cancel("No tasks to delete.")?;
+                return Ok(());
             }
 
-            print!("  Enter Task ID to delete: ");
-            io::stdout().flush().ok();
-            let mut id_str = String::new();
-            io::stdin().read_line(&mut id_str).ok();
-            let id = id_str.trim().parse::<usize>().unwrap_or(0);
+            let mut select_prompt = select("Select Task to delete");
+            for task in &board.tasks {
+                select_prompt = select_prompt.item(task.id, format!("#{} - {}", task.id, task.title), &task.status);
+            }
+            let id: usize = select_prompt.interact()?;
 
             if board.tasks.iter().any(|t| t.id == id) {
                 board.tasks.retain(|t| t.id != id);
                 if let Ok(serialized) = serde_json::to_string_pretty(&board) {
                     let _ = fs::write(&kanban_file, serialized);
-                    println!("  ✓ Task #{} deleted successfully.", id);
+                    outro(format!("Task #{} deleted successfully.", id))?;
                 }
             } else {
-                println!("  ✗ Task #{} not found.", id);
+                outro_cancel(format!("Task #{} not found.", id))?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

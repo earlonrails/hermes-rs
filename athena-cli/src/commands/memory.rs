@@ -1,62 +1,50 @@
 use athena_core::config::{get_env_value, save_env_value};
-use std::io::{self, Write};
+use cliclack::{intro, select, input, password, outro, note};
+use anyhow::Result;
 
-pub fn run_memory() {
-    println!("\nAthena External Memory Provider");
-    println!("═════════════════════════════════\n");
-    println!("Configure Honcho, Qdrant, or Pinecone semantic retrieval nodes.");
-    println!();
+pub fn run_memory() -> Result<()> {
+    intro("Athena External Memory Provider")?;
+    note("Info", "Configure Honcho, Qdrant, or Pinecone semantic retrieval nodes.")?;
 
     let current = get_env_value("MEMORY_BACKEND").unwrap_or_else(|| "local".to_string());
-    println!("Current Memory Backend: {}", current);
-    println!();
-
-    println!("Options:");
-    println!("  1. Set Memory Backend to Local SQLite");
-    println!("  2. Set Memory Backend to Honcho Cloud");
-    println!("  3. Set Memory Backend to Qdrant Vector DB");
-    println!("  4. Exit");
-    println!();
-
-    print!("  Choice [1-4]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    
+    let choice: usize = select(format!("Current Memory Backend: {}", current))
+        .item(1, "Set Memory Backend to Local SQLite", "")
+        .item(2, "Set Memory Backend to Honcho Cloud", "")
+        .item(3, "Set Memory Backend to Qdrant Vector DB", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
             if save_env_value("MEMORY_BACKEND", "local").is_ok() {
-                println!("  ✓ Set memory backend to Local SQLite.");
+                outro("Set memory backend to Local SQLite.")?;
             }
         }
         2 => {
-            print!("  Enter Honcho API Key: ");
-            io::stdout().flush().ok();
-            let mut key = String::new();
-            io::stdin().read_line(&mut key).ok();
+            let key: String = password("Enter Honcho API Key (will be masked)").interact()?;
             let key = key.trim();
             if !key.is_empty() {
                 let _ = save_env_value("HONCHO_API_KEY", key);
             }
             if save_env_value("MEMORY_BACKEND", "honcho").is_ok() {
-                println!("  ✓ Set memory backend to Honcho Cloud.");
+                outro("Set memory backend to Honcho Cloud.")?;
             }
         }
         3 => {
-            print!("  Enter Qdrant URL (e.g. http://localhost:6334): ");
-            io::stdout().flush().ok();
-            let mut url = String::new();
-            io::stdin().read_line(&mut url).ok();
+            let url: String = input("Enter Qdrant URL")
+                .placeholder("http://localhost:6334")
+                .interact()?;
             let url = url.trim();
             if !url.is_empty() {
                 let _ = save_env_value("QDRANT_URL", url);
             }
             if save_env_value("MEMORY_BACKEND", "qdrant").is_ok() {
-                println!("  ✓ Set memory backend to Qdrant Vector DB.");
+                outro("Set memory backend to Qdrant Vector DB.")?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

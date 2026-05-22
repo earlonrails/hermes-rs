@@ -2,54 +2,53 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, input, outro, outro_cancel, spinner};
+use anyhow::Result;
 
-pub fn run_backup() {
-    println!("\nAthena Backup Utility");
-    println!("═══════════════════════\n");
+pub fn run_backup() -> Result<()> {
+    intro("Athena Backup Utility")?;
 
     let home_dir = get_athena_home();
     if !home_dir.exists() {
-        println!("No ~/.athena configuration directory found at {}.", home_dir.display());
-        return;
+        outro_cancel(format!("No ~/.athena configuration directory found at {}.", home_dir.display()))?;
+        return Ok(());
     }
 
-    print!("Enter backup destination file path [default: ./athena-backup.zip]: ");
-    io::stdout().flush().ok();
-
-    let mut dest_str = String::new();
-    io::stdin().read_line(&mut dest_str).ok();
-    let mut dest_str = dest_str.trim().to_string();
-    if dest_str.is_empty() {
-        dest_str = "./athena-backup.zip".to_string();
-    }
+    let dest_str: String = input("Enter backup destination file path")
+        .default_input("./athena-backup.zip")
+        .interact()?;
+    let dest_str = dest_str.trim().to_string();
 
     let dest_path = PathBuf::from(dest_str);
-    println!("Creating backup zip at {}...", dest_path.display());
+    
+    let mut s = spinner();
+    s.start(format!("Creating backup zip at {}...", dest_path.display()));
 
     let file = match File::create(&dest_path) {
         Ok(f) => f,
         Err(e) => {
-            println!("✗ Failed to create backup file: {}", e);
-            return;
+            s.error(format!("Failed to create backup file: {}", e));
+            return Ok(());
         }
     };
 
     let mut zip = zip::ZipWriter::new(file);
 
-    println!("Scanning and compressing ~/.athena files...");
     match add_directory_to_zip(&mut zip, &home_dir, &home_dir) {
         Ok(()) => {
             if let Err(e) = zip.finish() {
-                println!("✗ Failed to finalize zip archive: {}", e);
+                s.error(format!("Failed to finalize zip archive: {}", e));
             } else {
-                println!("\n✓ Backup created successfully!");
-                println!("Saved to: {}", dest_path.display());
+                s.stop("Backup created successfully!");
+                outro(format!("Saved to: {}", dest_path.display()))?;
             }
         }
         Err(e) => {
-            println!("✗ Failed to write files to backup: {}", e);
+            s.error(format!("Failed to write files to backup: {}", e));
         }
     }
+    
+    Ok(())
 }
 
 fn add_directory_to_zip<W: Write + io::Seek>(

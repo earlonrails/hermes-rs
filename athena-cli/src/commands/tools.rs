@@ -1,56 +1,44 @@
 use athena_core::config::{load_config, save_config};
-use std::io::{self, Write};
+use cliclack::{intro, select, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_tools() {
-    println!("\nAthena Tools Configuration");
-    println!("════════════════════════════\n");
-    println!("Configure which local capabilities (filesystem, search, execution) are enabled.");
-    println!();
+pub fn run_tools() -> Result<()> {
+    intro("Athena Tools Configuration")?;
+    note("Info", "Configure which local capabilities (filesystem, search, execution) are enabled.")?;
 
     let mut config = load_config();
     let all_tools = ["filesystem_read", "filesystem_write", "web_search", "command_execution", "browser_automation"];
 
-    println!("Current Tools Status:");
+    let mut msg = String::from("Current Tools Status:\n");
     for (i, tool) in all_tools.iter().enumerate() {
         let disabled = config.tools.disabled.contains(&tool.to_string());
         let status = if disabled { "DISABLED" } else { "ENABLED" };
-        println!("  {}. {:<22} : {}", i + 1, tool, status);
+        msg.push_str(&format!("  {}. {:<22} : {}\n", i + 1, tool, status));
     }
-    println!();
-
-    println!("Options:");
-    println!("  1. Toggle a tool's enabled/disabled status");
-    println!("  2. Enable all tools");
-    println!("  3. Exit");
-    println!();
-
-    print!("  Choice [1-3]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(3);
+    
+    let choice: usize = select(msg.trim_end())
+        .item(1, "Toggle a tool's enabled/disabled status", "")
+        .item(2, "Enable all tools", "")
+        .item(3, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            print!("  Select tool number to toggle [1-{}]: ", all_tools.len());
-            io::stdout().flush().ok();
-            let mut tool_choice = String::new();
-            io::stdin().read_line(&mut tool_choice).ok();
-            let tool_choice = tool_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if tool_choice < 1 || tool_choice > all_tools.len() {
-                println!("  ✗ Invalid choice.");
-                return;
+            let mut select_prompt = select("Select tool to toggle");
+            for (i, tool) in all_tools.iter().enumerate() {
+                let disabled = config.tools.disabled.contains(&tool.to_string());
+                let status = if disabled { "DISABLED" } else { "ENABLED" };
+                select_prompt = select_prompt.item(i, *tool, status);
             }
+            let tool_choice: usize = select_prompt.interact()?;
 
-            let selected = all_tools[tool_choice - 1].to_string();
+            let selected = all_tools[tool_choice].to_string();
             if config.tools.disabled.contains(&selected) {
                 config.tools.disabled.retain(|t| t != &selected);
-                println!("  ✓ Enabled tool: {}.", selected);
+                outro(format!("Enabled tool: {}.", selected))?;
             } else {
                 config.tools.disabled.push(selected.clone());
-                println!("  ✓ Disabled tool: {}.", selected);
+                outro(format!("Disabled tool: {}.", selected))?;
             }
 
             let _ = save_config(&config);
@@ -58,9 +46,13 @@ pub fn run_tools() {
         2 => {
             config.tools.disabled.clear();
             if save_config(&config).is_ok() {
-                println!("  ✓ All tools successfully enabled.");
+                outro("All tools successfully enabled.")?;
+            } else {
+                outro_cancel("Failed to save config.")?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

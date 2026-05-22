@@ -1,23 +1,17 @@
 use std::process::{Command, Stdio};
-use std::io::{self, Write};
+use std::io::Write;
+use cliclack::{intro, select, input, confirm, outro, outro_cancel};
+use anyhow::Result;
 
-pub fn run_cron() {
-    println!("\nAthena Cron Job Scheduler");
-    println!("═══════════════════════════\n");
-    println!("This utility manages periodic background agent queries via the system crontab.");
-    println!();
-    println!("  1. List active Athena cron jobs");
-    println!("  2. Add a new scheduled query");
-    println!("  3. Remove all Athena cron jobs");
-    println!("  4. Exit");
-    println!();
+pub fn run_cron() -> Result<()> {
+    intro("Athena Cron Job Scheduler")?;
 
-    print!("  Choice [1-4]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    let choice: usize = select("Manage periodic background agent queries via the system crontab")
+        .item(1, "List active Athena cron jobs", "")
+        .item(2, "Add a new scheduled query", "")
+        .item(3, "Remove all Athena cron jobs", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
@@ -30,7 +24,7 @@ pub fn run_cron() {
                 Ok(out) => {
                     let stderr = String::from_utf8_lossy(&out.stderr);
                     if stderr.contains("no crontab for") {
-                        println!("  (No crontab exists for the current user)");
+                        outro("No crontab exists for the current user")?;
                     } else if out.status.success() {
                         let stdout = String::from_utf8_lossy(&out.stdout);
                         let athena_jobs: Vec<&str> = stdout
@@ -39,42 +33,38 @@ pub fn run_cron() {
                             .collect();
 
                         if athena_jobs.is_empty() {
-                            println!("  No active Athena cron jobs found.");
+                            outro("No active Athena cron jobs found.")?;
                         } else {
+                            let mut msg = String::from("Active Jobs:\n");
                             for job in athena_jobs {
-                                println!("  • {}", job);
+                                msg.push_str(&format!("  • {}\n", job));
                             }
+                            outro(msg.trim_end())?;
                         }
                     } else {
-                        println!("  Failed to read crontab: {}", stderr.trim());
+                        outro_cancel(format!("Failed to read crontab: {}", stderr.trim()))?;
                     }
                 }
-                Err(e) => println!("  ✗ Error invoking crontab command: {}", e),
+                Err(e) => { outro_cancel(format!("Error invoking crontab command: {}", e))?; }
             }
         }
         2 => {
-            println!("\nAdd Scheduled Query");
-            println!("-------------------");
-            print!("  Enter cron schedule (e.g. '0 * * * *' for hourly, '0 9 * * *' for daily at 9am): ");
-            io::stdout().flush().ok();
-            let mut schedule = String::new();
-            io::stdin().read_line(&mut schedule).ok();
-            let schedule = schedule.trim().to_string();
+            let schedule: String = input("Enter cron schedule")
+                .placeholder("0 * * * *")
+                .interact()?;
 
             if schedule.is_empty() {
-                println!("  Schedule cannot be empty.");
-                return;
+                outro_cancel("Schedule cannot be empty.")?;
+                return Ok(());
             }
 
-            print!("  Enter the query for the agent (e.g. 'check server health'): ");
-            io::stdout().flush().ok();
-            let mut query = String::new();
-            io::stdin().read_line(&mut query).ok();
-            let query = query.trim().to_string();
+            let query: String = input("Enter the query for the agent")
+                .placeholder("check server health")
+                .interact()?;
 
             if query.is_empty() {
-                println!("  Query cannot be empty.");
-                return;
+                outro_cancel("Query cannot be empty.")?;
+                return Ok(());
             }
 
             // Get current crontab
@@ -114,26 +104,24 @@ pub fn run_cron() {
                     match c.wait_with_output() {
                         Ok(out) => {
                             if out.status.success() {
-                                println!("  ✓ Successfully added scheduled job!");
-                                println!("  Job: {}", new_job.trim());
+                                outro(format!("Successfully added scheduled job!\nJob: {}", new_job.trim()))?;
                             } else {
-                                println!("  ✗ Failed to update crontab: {}", String::from_utf8_lossy(&out.stderr).trim());
+                                outro_cancel(format!("Failed to update crontab: {}", String::from_utf8_lossy(&out.stderr).trim()))?;
                             }
                         }
-                        Err(e) => println!("  ✗ Error waiting for crontab update: {}", e),
+                        Err(e) => { outro_cancel(format!("Error waiting for crontab update: {}", e))?; }
                     }
                 }
-                Err(e) => println!("  ✗ Error starting crontab process: {}", e),
+                Err(e) => { outro_cancel(format!("Error starting crontab process: {}", e))?; }
             }
         }
         3 => {
-            print!("\nAre you sure you want to remove ALL scheduled Athena cron jobs? [y/N]: ");
-            io::stdout().flush().ok();
-            let mut confirm = String::new();
-            io::stdin().read_line(&mut confirm).ok();
-            if confirm.trim().to_lowercase() != "y" {
-                println!("Cancelled.");
-                return;
+            let confirm_rm: bool = confirm("Are you sure you want to remove ALL scheduled Athena cron jobs?")
+                .interact()?;
+
+            if !confirm_rm {
+                outro_cancel("Cancelled.")?;
+                return Ok(());
             }
 
             // Get current crontab
@@ -170,17 +158,19 @@ pub fn run_cron() {
                     match c.wait_with_output() {
                         Ok(out) => {
                             if out.status.success() {
-                                println!("  ✓ All Athena cron jobs have been removed.");
+                                outro("All Athena cron jobs have been removed.")?;
                             } else {
-                                println!("  ✗ Failed to clear crontab: {}", String::from_utf8_lossy(&out.stderr).trim());
+                                outro_cancel(format!("Failed to clear crontab: {}", String::from_utf8_lossy(&out.stderr).trim()))?;
                             }
                         }
-                        Err(e) => println!("  ✗ Error waiting for crontab clear: {}", e),
+                        Err(e) => { outro_cancel(format!("Error waiting for crontab clear: {}", e))?; }
                     }
                 }
-                Err(e) => println!("  ✗ Error starting crontab process: {}", e),
+                Err(e) => { outro_cancel(format!("Error starting crontab process: {}", e))?; }
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

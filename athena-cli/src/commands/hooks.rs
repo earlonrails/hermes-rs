@@ -1,69 +1,57 @@
 use std::fs;
-use std::io::{self, Write};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, input, outro, outro_cancel};
+use anyhow::Result;
 
-pub fn run_hooks() {
-    println!("\nAthena Shell-Script Hooks");
-    println!("═══════════════════════════\n");
-    println!("Inspect and manage local event scripts executed before or after agent turns.");
-    println!();
+pub fn run_hooks() -> Result<()> {
+    intro("Athena Shell-Script Hooks")?;
 
     let hooks_dir = get_athena_home().join("hooks");
     if !hooks_dir.exists() {
         let _ = fs::create_dir_all(&hooks_dir);
     }
 
-    println!("Options:");
-    println!("  1. List active shell hooks");
-    println!("  2. Install a new shell hook");
-    println!("  3. Delete a shell hook");
-    println!("  4. Exit");
-    println!();
-
-    print!("  Choice [1-4]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    let choice: usize = select("Inspect and manage local event scripts executed before or after agent turns")
+        .item(1, "List active shell hooks", "")
+        .item(2, "Install a new shell hook", "")
+        .item(3, "Delete a shell hook", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            println!("\nInstalled Shell Hooks:");
             let mut count = 0;
+            let mut msg = String::from("Installed Shell Hooks:\n");
             if let Ok(entries) = fs::read_dir(&hooks_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_file() {
                         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                            println!("  • {} ({})", name, path.display());
+                            msg.push_str(&format!("  • {} ({})\n", name, path.display()));
                             count += 1;
                         }
                     }
                 }
             }
             if count == 0 {
-                println!("  No shell hooks installed.");
+                outro("No shell hooks installed.")?;
+            } else {
+                outro(msg.trim_end())?;
             }
         }
         2 => {
-            println!("\nInstall New Hook");
-            print!("  Enter hook name (e.g. pre-step, post-step): ");
-            io::stdout().flush().ok();
-            let mut name = String::new();
-            io::stdin().read_line(&mut name).ok();
-            let name = name.trim().to_string();
+            let name: String = input("Enter hook name")
+                .placeholder("pre-step, post-step")
+                .interact()?;
 
             if name.is_empty() {
-                println!("  ✗ Hook name cannot be empty.");
-                return;
+                outro_cancel("Hook name cannot be empty.")?;
+                return Ok(());
             }
 
-            print!("  Enter shell script content (e.g. 'echo \"hello\"'): ");
-            io::stdout().flush().ok();
-            let mut script = String::new();
-            io::stdin().read_line(&mut script).ok();
-            let script = script.trim().to_string();
+            let script: String = input("Enter shell script content")
+                .placeholder("echo \"hello\"")
+                .interact()?;
 
             let hook_path = hooks_dir.join(&name);
             match fs::write(&hook_path, script) {
@@ -77,30 +65,29 @@ pub fn run_hooks() {
                             let _ = fs::set_permissions(&hook_path, perms);
                         }
                     }
-                    println!("  ✓ Hook '{}' successfully created and made executable!", name);
+                    outro(format!("Hook '{}' successfully created and made executable!", name))?;
                 }
                 Err(e) => {
-                    println!("  ✗ Failed to write hook: {}", e);
+                    outro_cancel(format!("Failed to write hook: {}", e))?;
                 }
             }
         }
         3 => {
-            print!("\n  Enter hook name to delete: ");
-            io::stdout().flush().ok();
-            let mut name = String::new();
-            io::stdin().read_line(&mut name).ok();
+            let name: String = input("Enter hook name to delete").interact()?;
             let name = name.trim();
 
             let hook_path = hooks_dir.join(name);
             if hook_path.exists() {
                 match fs::remove_file(&hook_path) {
-                    Ok(()) => println!("  ✓ Hook '{}' deleted successfully.", name),
-                    Err(e) => println!("  ✗ Failed to delete hook: {}", e),
+                    Ok(()) => outro(format!("Hook '{}' deleted successfully.", name))?,
+                    Err(e) => outro_cancel(format!("Failed to delete hook: {}", e))?,
                 }
             } else {
-                println!("  ✗ Hook '{}' does not exist.", name);
+                outro_cancel(format!("Hook '{}' does not exist.", name))?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

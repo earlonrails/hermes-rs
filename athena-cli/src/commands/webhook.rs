@@ -1,7 +1,8 @@
 use std::fs;
-use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, input, outro, outro_cancel};
+use anyhow::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct WebhookData {
@@ -16,11 +17,8 @@ struct Subscription {
     active: bool,
 }
 
-pub fn run_webhook() {
-    println!("\nAthena Webhook Subscriptions");
-    println!("══════════════════════════════\n");
-    println!("Manage incoming and outgoing HTTP webhook hooks for third-party service dispatch.");
-    println!();
+pub fn run_webhook() -> Result<()> {
+    intro("Athena Webhook Subscriptions")?;
 
     let webhook_file = get_athena_home().join("webhooks.json");
     let mut data = if webhook_file.exists() {
@@ -30,57 +28,41 @@ pub fn run_webhook() {
         WebhookData::default()
     };
 
-    println!("Options:");
-    println!("  1. List registered webhooks");
-    println!("  2. Register a new webhook");
-    println!("  3. Toggle webhook status");
-    println!("  4. Delete a webhook");
-    println!("  5. Exit");
-    println!();
-
-    print!("  Choice [1-5]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(5);
+    let choice: usize = select("Manage incoming and outgoing HTTP webhook hooks for third-party service dispatch")
+        .item(1, "List registered webhooks", "")
+        .item(2, "Register a new webhook", "")
+        .item(3, "Toggle webhook status", "")
+        .item(4, "Delete a webhook", "")
+        .item(5, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            println!("\nRegistered Webhooks:");
             if data.subscriptions.is_empty() {
-                println!("  No webhooks registered.");
+                outro("No webhooks registered.")?;
             } else {
+                let mut msg = String::from("Registered Webhooks:\n");
                 for (i, sub) in data.subscriptions.iter().enumerate() {
                     let status = if sub.active { "ACTIVE" } else { "INACTIVE" };
-                    println!(
-                        "  {}. {} -> {} [{}] (Secret: {})",
+                    msg.push_str(&format!(
+                        "  {}. {} -> {} [{}] (Secret: {})\n",
                         i + 1,
                         sub.name,
                         sub.url,
                         status,
                         sub.secret
-                    );
+                    ));
                 }
+                outro(msg.trim_end())?;
             }
         }
         2 => {
-            println!("\nRegister New Webhook");
-            print!("  Enter custom name: ");
-            io::stdout().flush().ok();
-            let mut name = String::new();
-            io::stdin().read_line(&mut name).ok();
-            let name = name.trim().to_string();
-
-            print!("  Enter callback URL: ");
-            io::stdout().flush().ok();
-            let mut url = String::new();
-            io::stdin().read_line(&mut url).ok();
-            let url = url.trim().to_string();
+            let name: String = input("Enter custom name").interact()?;
+            let url: String = input("Enter callback URL").interact()?;
 
             if name.is_empty() || url.is_empty() {
-                println!("  ✗ Name and URL cannot be empty.");
-                return;
+                outro_cancel("Name and URL cannot be empty.")?;
+                return Ok(());
             }
 
             let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyz0123456789".chars().collect();
@@ -99,67 +81,47 @@ pub fn run_webhook() {
 
             if let Ok(serialized) = serde_json::to_string_pretty(&data) {
                 let _ = fs::write(&webhook_file, serialized);
-                println!("  ✓ Webhook successfully registered.");
+                outro("Webhook successfully registered.")?;
             }
         }
         3 => {
             if data.subscriptions.is_empty() {
-                println!("\n  No webhooks to toggle.");
-                return;
+                outro_cancel("No webhooks to toggle.")?;
+                return Ok(());
             }
 
-            println!("\nSelect a webhook to toggle active status:");
+            let mut select_prompt = select("Select a webhook to toggle active status");
             for (i, sub) in data.subscriptions.iter().enumerate() {
-                println!("  {}. {} [{}]", i + 1, sub.name, if sub.active { "ACTIVE" } else { "INACTIVE" });
+                select_prompt = select_prompt.item(i, sub.name.clone(), if sub.active { "ACTIVE" } else { "INACTIVE" });
             }
-            println!();
+            let sub_choice: usize = select_prompt.interact()?;
 
-            print!("  Choice [1-{}]: ", data.subscriptions.len());
-            io::stdout().flush().ok();
-            let mut sub_choice = String::new();
-            io::stdin().read_line(&mut sub_choice).ok();
-            let sub_choice = sub_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if sub_choice < 1 || sub_choice > data.subscriptions.len() {
-                println!("  ✗ Invalid choice.");
-                return;
-            }
-
-            data.subscriptions[sub_choice - 1].active = !data.subscriptions[sub_choice - 1].active;
+            data.subscriptions[sub_choice].active = !data.subscriptions[sub_choice].active;
             if let Ok(serialized) = serde_json::to_string_pretty(&data) {
                 let _ = fs::write(&webhook_file, serialized);
-                println!("  ✓ Successfully toggled status.");
+                outro("Successfully toggled status.")?;
             }
         }
         4 => {
             if data.subscriptions.is_empty() {
-                println!("\n  No webhooks to delete.");
-                return;
+                outro_cancel("No webhooks to delete.")?;
+                return Ok(());
             }
 
-            println!("\nSelect a webhook to delete:");
+            let mut select_prompt = select("Select a webhook to delete");
             for (i, sub) in data.subscriptions.iter().enumerate() {
-                println!("  {}. {}", i + 1, sub.name);
+                select_prompt = select_prompt.item(i, sub.name.clone(), "");
             }
-            println!();
+            let sub_choice: usize = select_prompt.interact()?;
 
-            print!("  Choice [1-{}]: ", data.subscriptions.len());
-            io::stdout().flush().ok();
-            let mut sub_choice = String::new();
-            io::stdin().read_line(&mut sub_choice).ok();
-            let sub_choice = sub_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if sub_choice < 1 || sub_choice > data.subscriptions.len() {
-                println!("  ✗ Invalid choice.");
-                return;
-            }
-
-            let removed = data.subscriptions.remove(sub_choice - 1);
+            let removed = data.subscriptions.remove(sub_choice);
             if let Ok(serialized) = serde_json::to_string_pretty(&data) {
                 let _ = fs::write(&webhook_file, serialized);
-                println!("  ✓ Webhook {} deleted successfully.", removed.name);
+                outro(format!("Webhook {} deleted successfully.", removed.name))?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

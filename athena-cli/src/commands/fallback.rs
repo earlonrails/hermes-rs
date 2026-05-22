@@ -1,54 +1,55 @@
 use athena_core::config::{load_config, save_config};
-use std::io::{self, Write};
+use cliclack::{intro, select, input, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_fallback() {
+pub fn run_fallback() -> Result<()> {
     let mut config = load_config();
-    println!("\nFallback Providers Configuration");
-    println!("═════════════════════════════════\n");
-    println!("Fallback providers are queried sequentially when the primary provider fails.");
-    println!("Current fallback list: {:?}", config.fallback_providers);
-    println!();
+    intro("Fallback Providers Configuration")?;
+    note("Info", format!("Fallback providers are queried sequentially when the primary provider fails.\nCurrent fallback list: {:?}", config.fallback_providers))?;
 
-    println!("  1. Add provider to fallbacks");
-    println!("  2. Remove provider from fallbacks");
-    println!("  3. Clear fallbacks");
-    println!("  4. Exit");
-    println!();
-
-    print!("  Choice: ");
-    io::stdout().flush().ok();
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    let choice: usize = select("Options")
+        .item(1, "Add provider to fallbacks", "")
+        .item(2, "Remove provider from fallbacks", "")
+        .item(3, "Clear fallbacks", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            print!("  Enter provider slug (e.g. anthropic, openrouter): ");
-            io::stdout().flush().ok();
-            let mut slug = String::new();
-            io::stdin().read_line(&mut slug).ok();
+            let slug: String = input("Enter provider slug")
+                .placeholder("anthropic, openrouter")
+                .interact()?;
             let slug = slug.trim().to_string();
             if !slug.is_empty() {
                 config.fallback_providers.push(slug.clone());
                 let _ = save_config(&config);
-                println!("  ✓ Added {} to fallbacks.", slug);
+                outro(format!("Added {} to fallbacks.", slug))?;
+            } else {
+                outro_cancel("Provider slug cannot be empty.")?;
             }
         }
         2 => {
-            print!("  Enter provider slug to remove: ");
-            io::stdout().flush().ok();
-            let mut slug = String::new();
-            io::stdin().read_line(&mut slug).ok();
-            let slug = slug.trim();
-            config.fallback_providers.retain(|p| p != slug);
+            if config.fallback_providers.is_empty() {
+                outro_cancel("No fallbacks configured.")?;
+                return Ok(());
+            }
+
+            let mut select_prompt = select("Select provider to remove");
+            for (i, p) in config.fallback_providers.iter().enumerate() {
+                select_prompt = select_prompt.item(i, p.clone(), "");
+            }
+            let idx: usize = select_prompt.interact()?;
+            
+            let slug = config.fallback_providers.remove(idx);
             let _ = save_config(&config);
-            println!("  ✓ Removed {} from fallbacks.", slug);
+            outro(format!("Removed {} from fallbacks.", slug))?;
         }
         3 => {
             config.fallback_providers.clear();
             let _ = save_config(&config);
-            println!("  ✓ Fallback list cleared.");
+            outro("Fallback list cleared.")?;
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    Ok(())
 }

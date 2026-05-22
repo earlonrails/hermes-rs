@@ -1,43 +1,38 @@
 use athena_core::config::{load_config, save_config};
 use athena_core::paths::get_athena_home;
-use std::io::{self, Write};
 use std::fs;
+use cliclack::{intro, select, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_slack() {
-    println!("\nAthena Slack Integration");
-    println!("══════════════════════════\n");
-    println!("Provides helpers for generating Slack Manifest JSON files and enabling the bot gateway.");
-    println!();
+pub fn run_slack() -> Result<()> {
+    intro("Athena Slack Integration")?;
+    note("Info", "Provides helpers for generating Slack Manifest JSON files and enabling the bot gateway.")?;
 
     let mut config = load_config();
-    println!("Current Status: {}", if config.gateway.slack_enabled { "ENABLED" } else { "DISABLED" });
-    println!();
+    let status = if config.gateway.slack_enabled { "ENABLED" } else { "DISABLED" };
 
-    println!("Options:");
-    println!("  1. Enable Slack gateway");
-    println!("  2. Disable Slack gateway");
-    println!("  3. Generate Slack Manifest JSON");
-    println!("  4. Exit");
-    println!();
-
-    print!("  Choice [1-4]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    let choice: usize = select(format!("Current Status: {}", status))
+        .item(1, "Enable Slack gateway", "")
+        .item(2, "Disable Slack gateway", "")
+        .item(3, "Generate Slack Manifest JSON", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
             config.gateway.slack_enabled = true;
             if save_config(&config).is_ok() {
-                println!("  ✓ Slack gateway has been enabled.");
+                outro("Slack gateway has been enabled.")?;
+            } else {
+                outro_cancel("Failed to save config.")?;
             }
         }
         2 => {
             config.gateway.slack_enabled = false;
             if save_config(&config).is_ok() {
-                println!("  ✓ Slack gateway has been disabled.");
+                outro("Slack gateway has been disabled.")?;
+            } else {
+                outro_cancel("Failed to save config.")?;
             }
         }
         3 => {
@@ -73,14 +68,15 @@ pub fn run_slack() {
             let path = get_athena_home().join("slack-manifest.json");
             match fs::write(&path, manifest) {
                 Ok(()) => {
-                    println!("  ✓ Generated Slack Manifest template successfully!");
-                    println!("  Saved to: {}", path.display());
+                    note("Success", format!("Generated Slack Manifest template successfully!\nSaved to: {}", path.display()))?;
                 }
                 Err(e) => {
-                    println!("  ✗ Failed to save manifest: {}", e);
+                    outro_cancel(format!("Failed to save manifest: {}", e))?;
                 }
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

@@ -1,9 +1,9 @@
 use athena_core::config::{get_env_value, save_env_value, remove_env_value};
-use std::io::{self, Write};
+use cliclack::{intro, select, password, confirm, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_login() {
-    println!("\nAuthenticate with an Inference Provider");
-    println!("═════════════════════════════════════════\n");
+pub fn run_login() -> Result<()> {
+    intro("Authenticate with an Inference Provider")?;
 
     let providers = [
         ("openai",      "OPENAI_API_KEY"),
@@ -16,23 +16,13 @@ pub fn run_login() {
         ("xai",         "XAI_API_KEY"),
     ];
 
+    let mut select_prompt = select("Select provider");
     for (i, (name, _)) in providers.iter().enumerate() {
-        println!("  {}. {}", i + 1, name);
+        select_prompt = select_prompt.item(i, *name, "");
     }
-    println!();
+    let choice: usize = select_prompt.interact()?;
 
-    print!("  Select provider [1-{}]: ", providers.len());
-    io::stdout().flush().ok();
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(0);
-
-    if choice < 1 || choice > providers.len() {
-        println!("✗ Invalid choice.");
-        return;
-    }
-
-    let (name, env_var) = providers[choice - 1];
+    let (name, env_var) = providers[choice];
     let current = get_env_value(env_var);
     if let Some(ref val) = current {
         let masked = if val.len() > 8 {
@@ -40,28 +30,26 @@ pub fn run_login() {
         } else {
             "****".to_string()
         };
-        println!("  Current API key: {}", masked);
+        note("Current API key", masked)?;
     }
 
-    print!("  Enter new API key for {} (or press Enter to skip): ", name);
-    io::stdout().flush().ok();
-    let mut key = String::new();
-    io::stdin().read_line(&mut key).ok();
+    let key: String = password(format!("Enter new API key for {} (or press Enter to skip)", name)).interact()?;
     let key = key.trim();
 
     if !key.is_empty() {
         match save_env_value(env_var, key) {
-            Ok(()) => println!("✓ Saved API key for {} to ~/.athena/.env", name),
-            Err(e) => println!("✗ Failed to save API key: {}", e),
+            Ok(()) => outro(format!("Saved API key for {} to ~/.athena/.env", name))?,
+            Err(e) => outro_cancel(format!("Failed to save API key: {}", e))?,
         }
     } else {
-        println!("  No changes made.");
+        outro("No changes made.")?;
     }
+    
+    Ok(())
 }
 
-pub fn run_logout() {
-    println!("\nClear Provider Authentication");
-    println!("═══════════════════════════════\n");
+pub fn run_logout() -> Result<()> {
+    intro("Clear Provider Authentication")?;
 
     let providers = [
         ("openai",      "OPENAI_API_KEY"),
@@ -74,38 +62,27 @@ pub fn run_logout() {
         ("xai",         "XAI_API_KEY"),
     ];
 
+    let mut select_prompt = select("Select provider to log out of");
     for (i, (name, _)) in providers.iter().enumerate() {
-        println!("  {}. {}", i + 1, name);
+        select_prompt = select_prompt.item(i, *name, "");
     }
-    println!();
+    let choice: usize = select_prompt.interact()?;
 
-    print!("  Select provider to log out of [1-{}]: ", providers.len());
-    io::stdout().flush().ok();
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(0);
-
-    if choice < 1 || choice > providers.len() {
-        println!("✗ Invalid choice.");
-        return;
-    }
-
-    let (name, env_var) = providers[choice - 1];
+    let (name, env_var) = providers[choice];
     if get_env_value(env_var).is_none() {
-        println!("✓ Provider {} is already logged out.", name);
-        return;
+        outro(format!("Provider {} is already logged out.", name))?;
+        return Ok(());
     }
 
-    print!("  Are you sure you want to log out of {}? [y/N]: ", name);
-    io::stdout().flush().ok();
-    let mut confirm = String::new();
-    io::stdin().read_line(&mut confirm).ok();
-    if confirm.trim().to_lowercase() == "y" {
+    let confirm_out: bool = confirm(format!("Are you sure you want to log out of {}?", name)).interact()?;
+    if confirm_out {
         match remove_env_value(env_var) {
-            Ok(()) => println!("✓ Logged out of {} successfully.", name),
-            Err(e) => println!("✗ Failed to remove API key: {}", e),
+            Ok(()) => outro(format!("Logged out of {} successfully.", name))?,
+            Err(e) => outro_cancel(format!("Failed to remove API key: {}", e))?,
         }
     } else {
-        println!("  Cancelled.");
+        outro_cancel("Cancelled.")?;
     }
+    
+    Ok(())
 }

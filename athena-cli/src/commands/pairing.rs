@@ -1,7 +1,8 @@
 use std::fs;
-use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, input, outro, outro_cancel, note};
+use anyhow::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct AuthorizedClients {
@@ -16,11 +17,8 @@ struct ClientInfo {
     paired_at: String,
 }
 
-pub fn run_pairing() {
-    println!("\nAthena Gateway Pairing Manager");
-    println!("════════════════════════════════\n");
-    println!("Manage authorization for remote messaging gateways (Telegram, Slack, WhatsApp).");
-    println!();
+pub fn run_pairing() -> Result<()> {
+    intro("Athena Gateway Pairing Manager")?;
 
     let clients_file = get_athena_home().join("authorized_clients.json");
     let mut auth_data = if clients_file.exists() {
@@ -30,20 +28,13 @@ pub fn run_pairing() {
         AuthorizedClients::default()
     };
 
-    println!("Options:");
-    println!("  1. Generate a temporary pairing code");
-    println!("  2. List currently authorized clients");
-    println!("  3. Add a manual client authorization");
-    println!("  4. Revoke a client authorization");
-    println!("  5. Exit");
-    println!();
-
-    print!("  Choice [1-5]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(5);
+    let choice: usize = select("Manage authorization for remote messaging gateways (Telegram, Slack, WhatsApp)")
+        .item(1, "Generate a temporary pairing code", "")
+        .item(2, "List currently authorized clients", "")
+        .item(3, "Add a manual client authorization", "")
+        .item(4, "Revoke a client authorization", "")
+        .item(5, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
@@ -56,51 +47,41 @@ pub fn run_pairing() {
                 let idx = rand::random::<usize>() % chars.len();
                 code.push(chars[idx]);
             }
-            println!("\n  🔑 Temporary Pairing Code: ATHENA-{}", code);
-            println!("  Send this code in a DM to your configured Telegram/Slack bot to authorize your account.");
-            println!("  (Code is active for this session)");
+            note("Temporary Pairing Code", format!("ATHENA-{}", code))?;
+            outro("Send this code in a DM to your configured Telegram/Slack bot to authorize your account.\n(Code is active for this session)")?;
         }
         2 => {
-            println!("\nAuthorized Clients:");
             if auth_data.clients.is_empty() {
-                println!("  No authorized clients found.");
+                outro("No authorized clients found.")?;
             } else {
+                let mut msg = String::from("Authorized Clients:\n");
                 for (i, client) in auth_data.clients.iter().enumerate() {
                     let user_str = client.username.as_deref().unwrap_or("unknown");
-                    println!(
-                        "  {}. ID: {} [{}] (User: @{}, Paired: {})",
+                    msg.push_str(&format!(
+                        "  {}. ID: {} [{}] (User: @{}, Paired: {})\n",
                         i + 1,
                         client.id,
                         client.platform,
                         user_str,
                         client.paired_at
-                    );
+                    ));
                 }
+                outro(msg.trim_end())?;
             }
         }
         3 => {
-            println!("\nAdd Manual Authorization");
-            print!("  Enter Platform (e.g. telegram, slack, whatsapp): ");
-            io::stdout().flush().ok();
-            let mut platform = String::new();
-            io::stdin().read_line(&mut platform).ok();
-            let platform = platform.trim().to_string();
+            let platform: String = input("Enter Platform")
+                .placeholder("telegram, slack, whatsapp")
+                .interact()?;
 
-            print!("  Enter Chat ID or User ID: ");
-            io::stdout().flush().ok();
-            let mut client_id = String::new();
-            io::stdin().read_line(&mut client_id).ok();
-            let client_id = client_id.trim().to_string();
+            let client_id: String = input("Enter Chat ID or User ID").interact()?;
 
             if client_id.is_empty() {
-                println!("  ✗ Chat ID cannot be empty.");
-                return;
+                outro_cancel("Chat ID cannot be empty.")?;
+                return Ok(());
             }
 
-            print!("  Enter Username (optional): ");
-            io::stdout().flush().ok();
-            let mut username_in = String::new();
-            io::stdin().read_line(&mut username_in).ok();
+            let username_in: String = input("Enter Username (optional)").interact()?;
             let username = if username_in.trim().is_empty() {
                 None
             } else {
@@ -117,41 +98,32 @@ pub fn run_pairing() {
 
             if let Ok(serialized) = serde_json::to_string_pretty(&auth_data) {
                 let _ = fs::write(&clients_file, serialized);
-                println!("  ✓ Successfully authorized client: {}.", client_id);
+                outro(format!("Successfully authorized client: {}.", client_id))?;
             } else {
-                println!("  ✗ Failed to serialize pairing information.");
+                outro_cancel("Failed to serialize pairing information.")?;
             }
         }
         4 => {
             if auth_data.clients.is_empty() {
-                println!("\n  No authorized clients to revoke.");
-                return;
+                outro_cancel("No authorized clients to revoke.")?;
+                return Ok(());
             }
 
-            println!("\nSelect a client number to revoke:");
+            let mut select_prompt = select("Select a client number to revoke");
             for (i, client) in auth_data.clients.iter().enumerate() {
                 let user_str = client.username.as_deref().unwrap_or("unknown");
-                println!("  {}. {} (User: @{})", i + 1, client.id, user_str);
+                select_prompt = select_prompt.item(i, format!("{} (User: @{})", client.id, user_str), "");
             }
-            println!();
+            let rev_choice: usize = select_prompt.interact()?;
 
-            print!("  Choice [1-{}]: ", auth_data.clients.len());
-            io::stdout().flush().ok();
-            let mut rev_choice = String::new();
-            io::stdin().read_line(&mut rev_choice).ok();
-            let rev_choice = rev_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if rev_choice < 1 || rev_choice > auth_data.clients.len() {
-                println!("  ✗ Invalid choice.");
-                return;
-            }
-
-            let removed = auth_data.clients.remove(rev_choice - 1);
+            let removed = auth_data.clients.remove(rev_choice);
             if let Ok(serialized) = serde_json::to_string_pretty(&auth_data) {
                 let _ = fs::write(&clients_file, serialized);
-                println!("  ✓ Revoked authorization for client: {}.", removed.id);
+                outro(format!("Revoked authorization for client: {}.", removed.id))?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }

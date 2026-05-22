@@ -1,12 +1,11 @@
 use std::fs;
-use std::io::{self, Write};
 use athena_core::paths::get_athena_home;
+use cliclack::{intro, select, confirm, outro, outro_cancel, note};
+use anyhow::Result;
 
-pub fn run_sessions() {
-    println!("\nAthena Sessions History");
-    println!("═════════════════════════\n");
-    println!("List, rename, export, delete, or prune past conversation histories.");
-    println!();
+pub fn run_sessions() -> Result<()> {
+    intro("Athena Sessions History")?;
+    note("Info", "List, rename, export, delete, or prune past conversation histories.")?;
 
     let sessions_dir = get_athena_home().join("sessions");
     if !sessions_dir.exists() {
@@ -29,94 +28,76 @@ pub fn run_sessions() {
     }
 
     if entries.is_empty() {
-        println!("No past session files found.");
-        return;
+        outro_cancel("No past session files found.")?;
+        return Ok(());
     }
 
     entries.sort_by(|a, b| b.2.cmp(&a.2));
 
-    println!("Current session history records:");
-    for (i, (_, name, modified)) in entries.iter().enumerate() {
-        let date_str = if let Some(time) = modified {
-            let datetime: chrono::DateTime<chrono::Local> = (*time).into();
-            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-        } else {
-            "Unknown date".to_string()
-        };
-        println!("  {}. {} - (Last active: {})", i + 1, name, date_str);
-    }
-    println!();
-
-    println!("Options:");
-    println!("  1. View session contents");
-    println!("  2. Delete a session");
-    println!("  3. Prune all sessions");
-    println!("  4. Exit");
-    println!();
-
-    print!("  Choice [1-4]: ");
-    io::stdout().flush().ok();
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).ok();
-    let choice = choice.trim().parse::<usize>().unwrap_or(4);
+    let choice: usize = select("Current session history records")
+        .item(1, "View session contents", "")
+        .item(2, "Delete a session", "")
+        .item(3, "Prune all sessions", "")
+        .item(4, "Exit", "")
+        .interact()?;
 
     match choice {
         1 => {
-            print!("  Select session number to view [1-{}]: ", entries.len());
-            io::stdout().flush().ok();
-            let mut s_choice = String::new();
-            io::stdin().read_line(&mut s_choice).ok();
-            let s_choice = s_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if s_choice < 1 || s_choice > entries.len() {
-                println!("  ✗ Invalid choice.");
-                return;
+            let mut select_prompt = select("Select session to view");
+            for (i, (_, name, modified)) in entries.iter().enumerate() {
+                let date_str = if let Some(time) = modified {
+                    let datetime: chrono::DateTime<chrono::Local> = (*time).into();
+                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                } else {
+                    "Unknown date".to_string()
+                };
+                select_prompt = select_prompt.item(i, name.clone(), date_str);
             }
+            let s_choice: usize = select_prompt.interact()?;
 
-            let (path, name, _) = &entries[s_choice - 1];
-            println!("\n--- SESSION CONTENT: {} ---", name);
+            let (path, name, _) = &entries[s_choice];
             if let Ok(content) = fs::read_to_string(path) {
-                println!("{}", content);
+                note(format!("SESSION CONTENT: {}", name), content)?;
             } else {
-                println!("  (Unable to read session content)");
+                outro_cancel("Unable to read session content")?;
             }
-            println!("-----------------------------");
         }
         2 => {
-            print!("  Select session number to delete [1-{}]: ", entries.len());
-            io::stdout().flush().ok();
-            let mut s_choice = String::new();
-            io::stdin().read_line(&mut s_choice).ok();
-            let s_choice = s_choice.trim().parse::<usize>().unwrap_or(0);
-
-            if s_choice < 1 || s_choice > entries.len() {
-                println!("  ✗ Invalid choice.");
-                return;
+            let mut select_prompt = select("Select session to delete");
+            for (i, (_, name, modified)) in entries.iter().enumerate() {
+                let date_str = if let Some(time) = modified {
+                    let datetime: chrono::DateTime<chrono::Local> = (*time).into();
+                    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                } else {
+                    "Unknown date".to_string()
+                };
+                select_prompt = select_prompt.item(i, name.clone(), date_str);
             }
+            let s_choice: usize = select_prompt.interact()?;
 
-            let (path, name, _) = &entries[s_choice - 1];
+            let (path, name, _) = &entries[s_choice];
             if fs::remove_file(path).is_ok() {
-                println!("  ✓ Session '{}' deleted successfully.", name);
+                outro(format!("Session '{}' deleted successfully.", name))?;
             } else {
-                println!("  ✗ Failed to delete session.");
+                outro_cancel("Failed to delete session.")?;
             }
         }
         3 => {
-            print!("  Are you sure you want to delete ALL sessions? [y/N]: ");
-            io::stdout().flush().ok();
-            let mut confirm = String::new();
-            io::stdin().read_line(&mut confirm).ok();
-            if confirm.trim().to_lowercase() == "y" {
+            let confirm_rm: bool = confirm("Are you sure you want to delete ALL sessions?").interact()?;
+            if confirm_rm {
                 let mut count = 0;
                 for (path, _, _) in entries {
                     if fs::remove_file(path).is_ok() {
                         count += 1;
                     }
                 }
-                println!("  ✓ Successfully cleared {} session history files.", count);
+                outro(format!("Successfully cleared {} session history files.", count))?;
+            } else {
+                outro_cancel("Cancelled.")?;
             }
         }
-        _ => {}
+        _ => { outro("Goodbye!")?; }
     }
+    
+    Ok(())
 }
