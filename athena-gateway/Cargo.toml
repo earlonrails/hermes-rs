@@ -12,3 +12,4 @@ tracing = "0.1"
 teloxide = { version = "0.12", default-features = false, features = ["macros", "rustls", "ctrlc_handler"] }
 dotenvy = "0.15"
 athena-providers = { version = "0.1.0", path = "../athena-providers" }
+tokio-cron-scheduler = "0.15.1"

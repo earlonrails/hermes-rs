@@ -21,7 +21,7 @@ pub fn run_backup() -> Result<()> {
 
     let dest_path = PathBuf::from(dest_str);
     
-    let mut s = spinner();
+    let s = spinner();
     s.start(format!("Creating backup zip at {}...", dest_path.display()));
 
     let file = match File::create(&dest_path) {

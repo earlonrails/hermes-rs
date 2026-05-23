@@ -38,6 +38,10 @@ pub struct AthenaConfig {
     #[serde(default)]
     pub tools: ToolsConfig,
 
+    /// Scheduled jobs.
+    #[serde(default)]
+    pub cron_jobs: Vec<CronJob>,
+
     /// Internal config schema version for migrations.
     #[serde(default, rename = "_config_version")]
     pub config_version: u32,
@@ -54,6 +58,7 @@ impl Default for AthenaConfig {
             agent: AgentSettings::default(),
             gateway: GatewayConfig::default(),
             tools: ToolsConfig::default(),
+            cron_jobs: Vec::new(),
             config_version: 0,
         }
     }
@@ -61,6 +66,12 @@ impl Default for AthenaConfig {
 
 fn default_terminal_backend() -> String {
     "local".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CronJob {
+    pub schedule: String,
+    pub query: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::path::PathBuf;
 use athena_core::paths::get_athena_home;
-use cliclack::{intro, input, confirm, outro, outro_cancel, spinner};
+use cliclack::{intro, input, confirm, outro_cancel, spinner};
 use anyhow::Result;
 
 pub fn run_import() -> Result<()> {
@@ -27,7 +27,7 @@ pub fn run_import() -> Result<()> {
         return Ok(());
     }
 
-    let mut s = spinner();
+    let s = spinner();
     s.start(format!("Extracting backup into {}...", home_dir.display()));
 
     let file = match File::open(&backup_path) {

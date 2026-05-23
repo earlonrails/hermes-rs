@@ -1,17 +1,83 @@
 use athena_agent::AIAgent;
 use athena_tools::ToolRegistry;
 use rustyline::error::ReadlineError;
-use rustyline::DefaultEditor;
+use rustyline::{Editor, Config, CompletionType, Context};
+use rustyline::completion::{Completer, Pair};
+use rustyline::hint::Hinter;
+use rustyline::highlight::Highlighter;
+use rustyline::validate::Validator;
+use rustyline::Helper;
+use rustyline::history::DefaultHistory;
 use tracing::error;
 
+#[derive(Default)]
+struct AthenaHelper {
+    commands: Vec<String>,
+}
+
+impl Completer for AthenaHelper {
+    type Candidate = Pair;
+
+    fn complete(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Result<(usize, Vec<Pair>), ReadlineError> {
+        if line.starts_with('/') {
+            let word = &line[..pos];
+            let mut matches = Vec::new();
+            for cmd in &self.commands {
+                if cmd.starts_with(word) {
+                    matches.push(Pair {
+                        display: cmd.clone(),
+                        replacement: cmd.clone(),
+                    });
+                }
+            }
+            Ok((0, matches))
+        } else {
+            Ok((0, Vec::new()))
+        }
+    }
+}
+
+impl Hinter for AthenaHelper {
+    type Hint = String;
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<String> {
+        None
+    }
+}
+
+impl Highlighter for AthenaHelper {}
+impl Validator for AthenaHelper {}
+impl Helper for AthenaHelper {}
+
+
 pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry, provider: std::sync::Arc<dyn athena_providers::LLMProvider + Send + Sync>) {
-    let mut rl = match DefaultEditor::new() {
+    let config = Config::builder()
+        .completion_type(CompletionType::List)
+        .build();
+
+    let mut rl = match Editor::<AthenaHelper, DefaultHistory>::with_config(config) {
         Ok(rl) => rl,
         Err(e) => {
             error!("Failed to initialize readline: {}", e);
             return;
         }
     };
+
+    rl.set_helper(Some(AthenaHelper {
+        commands: vec![
+            "/help".into(),
+            "/model".into(),
+            "/tools".into(),
+            "/skills browse".into(),
+            "/background ".into(),
+            "/skin".into(),
+            "/voice on".into(),
+            "/voice tts".into(),
+            "/reasoning high".into(),
+            "/title ".into(),
+            "/status".into(),
+            "/sessions".into(),
+        ]
+    }));
 
     let raw_model = agent.model();
     let provider_str = if raw_model.contains("claude") || raw_model.contains("opus") || raw_model.contains("sonnet") {
@@ -23,6 +89,12 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry, p
     };
     let model_display = format!("{}{}", raw_model, provider_str);
 
+    let mut session_title = String::from("Untitled Session");
+    let mut turn_count = 0;
+    let mut voice_mode = false;
+    let mut tts_mode = false;
+    let mut active_skin = String::from("default");
+    
     println!("🦉 Athena Interactive Agent Session (v{})", env!("CARGO_PKG_VERSION"));
     println!("Active Model: {}", model_display);
     println!("Sandbox Target: Docker (Local container active)");
@@ -43,6 +115,144 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry, p
                     break;
                 }
 
+                if input.starts_with('/') {
+                    let _ = rl.add_history_entry(input);
+                    let parts: Vec<&str> = input.split_whitespace().collect();
+                    if parts.is_empty() { continue; }
+                    let cmd = parts[0];
+
+                    println!();
+                    match cmd {
+                        "/help" => {
+                            println!("Available commands:");
+                            println!("  /help           Show command help");
+                            println!("  /model          Show or change the current model");
+                            println!("  /tools          List currently available tools");
+                            println!("  /skills browse  Browse the skills hub and official optional skills");
+                            println!("  /background     Run a prompt in a separate background session");
+                            println!("  /skin           Show or switch the active CLI skin");
+                            println!("  /voice on       Enable CLI voice mode");
+                            println!("  /voice tts      Toggle spoken playback for replies");
+                            println!("  /reasoning      Set reasoning effort (low, medium, high)");
+                            println!("  /title          Name the current session");
+                            println!("  /status         Show session info");
+                            println!("  /sessions       Open an interactive session picker");
+                        }
+                        "/model" => {
+                            if let Err(e) = crate::commands::model::run_model() {
+                                println!("Error: {}", e);
+                            }
+                        }
+                        "/tools" => {
+                            if let Err(e) = crate::commands::tools::run_tools() {
+                                println!("Error: {}", e);
+                            }
+                        }
+                        "/skills" => {
+                            if let Err(e) = crate::commands::skills::run_skills() {
+                                println!("Error: {}", e);
+                            }
+                        }
+                        "/sessions" => {
+                            if let Err(e) = crate::commands::sessions::run_sessions() {
+                                println!("Error: {}", e);
+                            }
+                        }
+                        "/reasoning" => {
+                            if parts.len() > 1 {
+                                let mut config = athena_core::config::load_config();
+                                match parts[1].to_lowercase().as_str() {
+                                    "low" => config.agent.max_iterations = 5,
+                                    "medium" => config.agent.max_iterations = 20,
+                                    "high" => config.agent.max_iterations = 50,
+                                    _ => println!("Invalid level. Use low, medium, or high."),
+                                }
+                                if config.agent.max_iterations == 5 || config.agent.max_iterations == 20 || config.agent.max_iterations == 50 {
+                                    if athena_core::config::save_config(&config).is_ok() {
+                                        cliclack::note("Reasoning Effort Updated", format!("max_iterations set to {}", config.agent.max_iterations)).unwrap_or(());
+                                    }
+                                }
+                            } else {
+                                println!("Usage: /reasoning [low|medium|high]");
+                            }
+                        }
+                        "/title" => {
+                            if parts.len() > 1 {
+                                session_title = parts[1..].join(" ");
+                                cliclack::note("Session Renamed", &session_title).unwrap_or(());
+                            } else {
+                                println!("Usage: /title <name>");
+                            }
+                        }
+                        "/status" => {
+                            let status = format!(
+                                "Title: {}\nModel: {}\nTurns: {}\nVoice: {}\nTTS: {}\nSkin: {}",
+                                session_title, model_display, turn_count, voice_mode, tts_mode, active_skin
+                            );
+                            cliclack::note("Session Status", status).unwrap_or(());
+                        }
+                        "/voice" => {
+                            if parts.len() > 1 {
+                                match parts[1] {
+                                    "on" => {
+                                        voice_mode = true;
+                                        cliclack::note("Voice Mode", "Enabled. Press Ctrl+B to record (Requires external bridge)").unwrap_or(());
+                                    }
+                                    "off" => {
+                                        voice_mode = false;
+                                        cliclack::note("Voice Mode", "Disabled").unwrap_or(());
+                                    }
+                                    "tts" => {
+                                        tts_mode = !tts_mode;
+                                        cliclack::note("TTS Mode", if tts_mode { "Enabled" } else { "Disabled" }).unwrap_or(());
+                                    }
+                                    _ => println!("Usage: /voice [on|off|tts]"),
+                                }
+                            } else {
+                                println!("Usage: /voice [on|off|tts]");
+                            }
+                        }
+                        "/skin" => {
+                            if parts.len() > 1 {
+                                active_skin = parts[1].to_string();
+                                cliclack::note("Skin Updated", format!("Active skin is now '{}'", active_skin)).unwrap_or(());
+                            } else {
+                                println!("Usage: /skin <name>");
+                            }
+                        }
+                        "/background" => {
+                            if parts.len() > 1 {
+                                let prompt = parts[1..].join(" ");
+                                let bg_provider = provider.clone();
+                                let bg_model = agent.model().to_string();
+                                
+                                println!("Starting background task...");
+                                
+                                tokio::spawn(async move {
+                                    let mut bg_agent = athena_agent::AIAgent::builder().model(bg_model).build();
+                                    let empty_registry = athena_tools::ToolRegistry::new();
+                                    match bg_agent.run_conversation(&prompt, Some("You are a helpful assistant."), &empty_registry, bg_provider).await {
+                                        Ok(response) => {
+                                            println!("\n\n[Background Task Completed]\n{}\n", response);
+                                        }
+                                        Err(e) => {
+                                            println!("\n\n[Background Task Error]: {}\n", e);
+                                        }
+                                    }
+                                });
+                            } else {
+                                println!("Usage: /background <prompt>");
+                            }
+                        }
+                        _ => {
+                            println!("Unknown command: {}. Type /help for a list of commands.", cmd);
+                        }
+                    }
+                    println!();
+                    continue;
+                }
+
+                turn_count += 1;
                 let _ = rl.add_history_entry(input);
 
                 println!();

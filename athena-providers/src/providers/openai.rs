@@ -143,7 +143,7 @@ impl OpenAIProvider {
                         role: async_openai::types::Role::Assistant,
                         name: msg.name,
                         tool_calls,
-                        function_call: None,
+                        ..Default::default()
                     };
                     api_messages.push(ChatCompletionRequestMessage::Assistant(assistant_msg));
                 }

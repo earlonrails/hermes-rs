@@ -292,7 +292,7 @@ async fn main() {
     let config = athena_core::config::load_config();
 
     // Initialize agent builder with global options
-    let (mut builder, provider) = create_agent_builder(&config, &args);
+    let (builder, provider) = create_agent_builder(&config, &args);
 
     match &args.command {
         Some(Commands::Query { query, toolsets, skills }) => {
