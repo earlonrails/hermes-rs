@@ -68,6 +68,14 @@ Start a persistent conversational chat session with the default model:
 athena chat
 ```
 
+**Slash Commands**: While in the interactive chat prompt (`athena>`), you can type `/` to access dynamic autocomplete slash commands, bringing Hermes-like power to your CLI:
+- `/reasoning [low|medium|high]` - Adjust `agent.max_iterations` on the fly.
+- `/background <prompt>` - Send a prompt to run asynchronously while you continue chatting.
+- `/voice [on|off|tts]` - Toggle voice interaction modes.
+- `/skin <name>` - Switch visual themes.
+- `/status` - Display your current session info and token usage.
+- `/tools`, `/model`, `/skills` - Jump directly into interactive configuration menus.
+
 ### 2. Run a One-Shot Query
 Execute a single query directly from the terminal:
 ```bash
@@ -80,7 +88,14 @@ Start the gorgeous local glassmorphic dashboard at `http://localhost:8000`:
 athena dashboard
 ```
 
-### 4. Backup & Restore
+### 4. Background Cron Jobs
+Schedule periodic queries to execute natively within the Athena Gateway daemon:
+```bash
+athena cron
+```
+*Note: Your `athena-gateway` must be running for these scheduled jobs to execute, as they are securely run in-process via `tokio-cron-scheduler`.*
+
+### 5. Backup & Restore
 Quickly export and import your full agent state:
 ```bash
 # Back up to a ZIP archive (logs folder automatically skipped for portability)

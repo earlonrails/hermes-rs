@@ -60,6 +60,20 @@ struct Args {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum GatewayCommands {
+    /// Install gateway as a user-level systemd service
+    Install,
+    /// Start the gateway service
+    Start,
+    /// Stop the gateway service
+    Stop,
+    /// Check gateway service status
+    Status,
+    /// View gateway service logs
+    Logs,
+}
+
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// Interactive chat with the agent
     Chat,
@@ -71,7 +85,10 @@ enum Commands {
     Fallback,
 
     /// Messaging gateway management
-    Gateway,
+    Gateway {
+        #[command(subcommand)]
+        command: Option<GatewayCommands>,
+    },
 
     /// Language Server Protocol management
     Lsp,
@@ -353,8 +370,8 @@ async fn main() {
                 eprintln!("Error: {}", e);
             }
         }
-        Some(Commands::Gateway) => {
-            commands::gateway::run_gateway();
+        Some(Commands::Gateway { command }) => {
+            commands::gateway::run_gateway(command);
         }
         Some(Commands::Lsp) => {
             commands::lsp::run_lsp();
