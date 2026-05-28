@@ -146,7 +146,7 @@ pub fn init_builtin_providers() {
 #[macro_export]
 macro_rules! register_provider {
     ($provider:expr) => {
-        crate::registry::register_provider(Arc::new($provider));
+        $crate::registry::register_provider(std::sync::Arc::new($provider));
     };
 }
 

@@ -4,8 +4,10 @@ use async_trait::async_trait;
 
 /// API mode types supported by providers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum ApiMode {
     /// Standard OpenAI-style chat completions
+    #[default]
     ChatCompletions,
     /// Anthropic Messages API
     AnthropicMessages,
@@ -15,16 +17,13 @@ pub enum ApiMode {
     Custom(String),
 }
 
-impl Default for ApiMode {
-    fn default() -> Self {
-        ApiMode::ChatCompletions
-    }
-}
 
 /// Authentication types for providers
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum AuthType {
     /// API key authentication (Bearer token)
+    #[default]
     ApiKey,
     /// OAuth device code flow
     OAuthDeviceCode,
@@ -38,11 +37,6 @@ pub enum AuthType {
     None,
 }
 
-impl Default for AuthType {
-    fn default() -> Self {
-        AuthType::ApiKey
-    }
-}
 
 /// Provider profile - declarative configuration for an LLM provider
 #[derive(Debug, Clone, Serialize, Deserialize)]

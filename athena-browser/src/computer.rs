@@ -8,6 +8,12 @@ pub struct ComputerUse {
     enigo: Arc<Mutex<Enigo>>,
 }
 
+impl Default for ComputerUse {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ComputerUse {
     pub fn new() -> Self {
         Self {

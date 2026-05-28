@@ -5,6 +5,12 @@ use serde_json::Value;
 /// should be injected directly into the LLMProvider's message payloads.
 pub struct VisionProcessor;
 
+impl Default for VisionProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VisionProcessor {
     pub fn new() -> Self {
         Self

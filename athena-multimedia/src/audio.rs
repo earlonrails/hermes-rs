@@ -34,12 +34,12 @@ impl AudioProcessor {
             .part("file", part)
             .text("model", "whisper-1");
 
-        let res = self.client.post(&format!("{}/audio/transcriptions", self.endpoint))
-            .bearer_auth(&self.openai_api_key)
+        let res = self.client.post(format!("{}/audio/transcriptions", self.endpoint))
+            .header("Authorization", format!("Bearer {}", self.openai_api_key))
             .multipart(form)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Network error: {}", e))?;
 
         if !res.status().is_success() {
             return Err(format!("API error: {}", res.status()));
@@ -59,7 +59,7 @@ impl AudioProcessor {
             "voice": "alloy"
         });
 
-        let res = self.client.post(&format!("{}/audio/speech", self.endpoint))
+        let res = self.client.post(format!("{}/audio/speech", self.endpoint))
             .bearer_auth(&self.openai_api_key)
             .json(&body)
             .send()

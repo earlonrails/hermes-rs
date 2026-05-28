@@ -40,6 +40,12 @@ pub struct MistralProvider {
     profile: ProviderProfile,
 }
 
+impl Default for MistralProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MistralProvider {
     pub fn new() -> Self {
         Self {

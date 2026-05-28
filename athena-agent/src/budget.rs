@@ -49,11 +49,7 @@ impl IterationBudget {
 
     pub fn remaining(&self) -> usize {
         let used = self.used.lock().map(|g| *g).unwrap_or(0);
-        if self.max_total > used {
-            self.max_total - used
-        } else {
-            0
-        }
+        self.max_total.saturating_sub(used)
     }
 }
 

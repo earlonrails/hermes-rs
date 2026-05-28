@@ -83,7 +83,7 @@ impl Environment for SshEnv {
         while let Some(msg) = channel.wait().await {
             match msg {
                 ChannelMsg::Data { ref data } => stdout_buf.push_str(&String::from_utf8_lossy(data)),
-                ChannelMsg::ExtendedData { ref data, ext } if ext == 1 => stderr_buf.push_str(&String::from_utf8_lossy(data)),
+                ChannelMsg::ExtendedData { ref data, ext: 1 } => stderr_buf.push_str(&String::from_utf8_lossy(data)),
                 ChannelMsg::ExitStatus { exit_status } => exit_code = exit_status as i32,
                 _ => {}
             }

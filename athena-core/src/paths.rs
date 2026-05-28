@@ -168,8 +168,7 @@ mod tests {
     use std::env;
     use std::sync::Mutex;
     use tempfile::TempDir;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    use crate::test_utils::ENV_LOCK;
 
     fn setup_test_env() -> TempDir {
         let temp_dir = TempDir::new().unwrap();

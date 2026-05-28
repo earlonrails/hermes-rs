@@ -37,6 +37,12 @@ pub struct XAIProvider {
     profile: ProviderProfile,
 }
 
+impl Default for XAIProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl XAIProvider {
     pub fn new() -> Self {
         Self {

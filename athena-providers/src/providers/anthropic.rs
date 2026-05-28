@@ -53,6 +53,12 @@ pub struct AnthropicProvider {
     profile: ProviderProfile,
 }
 
+impl Default for AnthropicProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnthropicProvider {
     pub fn new() -> Self {
         Self {
@@ -383,14 +389,12 @@ impl LLMProvider for AnthropicProvider {
             finish_reason: data.get("stop_reason").and_then(|s| s.as_str()).map(|s| s.to_string()),
         };
         
-        let usage = data.get("usage").and_then(|u| {
-            Some(Usage {
+        let usage = data.get("usage").map(|u| Usage {
                 prompt_tokens: u.get("input_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
                 completion_tokens: u.get("output_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
                 total_tokens: u.get("input_tokens").and_then(|t| t.as_u64()).unwrap_or(0) +
                              u.get("output_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
-            })
-        });
+            });
         
         Ok(ChatCompletionResponse {
             id: data.get("id").and_then(|id| id.as_str()).unwrap_or_default().to_string(),
@@ -482,8 +486,8 @@ impl LLMProvider for AnthropicProvider {
                         finish_reason: None,
                     });
                 }
-                "content_block_start" => {
-                    if data["content_block"]["type"] == "tool_use" {
+                "content_block_start"
+                    if data["content_block"]["type"] == "tool_use" => {
                         let id = data["content_block"]["id"].as_str().map(|s| s.to_string());
                         let name = data["content_block"]["name"].as_str().map(|s| s.to_string());
                         choices.push(StreamChoice {
@@ -503,7 +507,6 @@ impl LLMProvider for AnthropicProvider {
                             finish_reason: None,
                         });
                     }
-                }
                 "content_block_delta" => {
                     if data["delta"]["type"] == "text_delta" {
                         if let Some(text) = data["delta"]["text"].as_str() {

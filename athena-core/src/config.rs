@@ -305,9 +305,7 @@ mod tests {
     use super::*;
     use std::env;
     use std::sync::Mutex;
-
-    // Mutex to prevent parallel tests from colliding on ATHENA_HOME env var.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    use crate::test_utils::ENV_LOCK;
 
     fn setup_test_env() -> tempfile::TempDir {
         let temp_dir = tempfile::TempDir::new().unwrap();

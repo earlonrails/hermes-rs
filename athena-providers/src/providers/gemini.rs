@@ -37,6 +37,12 @@ pub struct GeminiProvider {
     profile: ProviderProfile,
 }
 
+impl Default for GeminiProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GeminiProvider {
     pub fn new() -> Self {
         Self {

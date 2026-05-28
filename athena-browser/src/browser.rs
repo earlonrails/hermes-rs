@@ -7,6 +7,12 @@ pub struct BrowserAutomation {
     capabilities: ChromeCapabilities,
 }
 
+impl Default for BrowserAutomation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BrowserAutomation {
     pub fn new() -> Self {
         let caps = DesiredCapabilities::chrome();

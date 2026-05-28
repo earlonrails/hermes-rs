@@ -48,6 +48,12 @@ pub struct ToolRegistry {
     toolset_aliases: Arc<RwLock<HashMap<String, String>>>,
 }
 
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ToolRegistry {
     pub fn new() -> Self {
         let mut tools = HashMap::new();

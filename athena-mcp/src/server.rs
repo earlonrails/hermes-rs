@@ -98,10 +98,7 @@ impl McpServer {
                             }],
                             is_error,
                         };
-                        res.result = match serde_json::to_value(result) {
-                            Ok(v) => Some(v),
-                            Err(_) => None,
-                        };
+                        res.result = serde_json::to_value(result).ok();
                     } else {
                         res.error = Some(JsonRpcError {
                             code: -32602,

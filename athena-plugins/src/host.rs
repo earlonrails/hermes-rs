@@ -6,6 +6,12 @@ pub struct AthenaHost {
     pub registry: Option<Arc<ToolRegistry>>,
 }
 
+impl Default for AthenaHost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AthenaHost {
     pub fn new() -> Self {
         Self {
