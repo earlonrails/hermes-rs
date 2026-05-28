@@ -331,3 +331,5 @@ mod tests {
         assert_eq!(res2.unwrap_err(), "Failure!");
     }
 }
+
+// Rust guideline compliant 2026-02-21

@@ -48,3 +48,5 @@ pub fn run_insights() {
     println!("  • Estimated Model Cost Saved  : ${:.4}", est_cost);
     println!();
 }
+
+// Rust guideline compliant 2026-02-21

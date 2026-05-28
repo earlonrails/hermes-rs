@@ -26,3 +26,5 @@ pub fn run_uninstall() -> Result<()> {
     note("Next Steps", "To completely uninstall, please remove the 'athena' binary from your PATH/cargo bin directory.")?;
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

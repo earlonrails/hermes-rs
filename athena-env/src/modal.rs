@@ -180,3 +180,5 @@ mod tests {
         assert!(res.is_ok());
     }
 }
+
+// Rust guideline compliant 2026-02-21

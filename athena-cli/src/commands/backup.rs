@@ -93,3 +93,5 @@ fn add_directory_to_zip<W: Write + io::Seek>(
     }
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

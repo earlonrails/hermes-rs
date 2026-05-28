@@ -144,3 +144,5 @@ pub fn run_profile() {
         _ => {}
     }
 }
+
+// Rust guideline compliant 2026-02-21

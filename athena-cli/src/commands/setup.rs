@@ -175,3 +175,5 @@ fn setup_gateway(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
 
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

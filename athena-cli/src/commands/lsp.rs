@@ -30,3 +30,5 @@ pub fn run_lsp() {
         line.clear();
     }
 }
+
+// Rust guideline compliant 2026-02-21

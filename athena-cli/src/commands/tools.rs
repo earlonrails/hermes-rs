@@ -56,3 +56,5 @@ pub fn run_tools() -> Result<()> {
     
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

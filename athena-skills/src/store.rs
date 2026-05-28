@@ -173,3 +173,5 @@ mod tests {
         assert_eq!(embeddings[1].1, embed2);
     }
 }
+
+// Rust guideline compliant 2026-02-21

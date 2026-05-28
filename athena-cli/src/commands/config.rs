@@ -55,3 +55,5 @@ pub fn run_config_edit() -> Result<()> {
     }
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

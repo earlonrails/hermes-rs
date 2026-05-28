@@ -180,3 +180,5 @@ mod tests {
         let _ = std::fs::remove_file(&temp_file);
     }
 }
+
+// Rust guideline compliant 2026-02-21

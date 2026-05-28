@@ -36,3 +36,5 @@ pub fn run_dump() {
     println!("- **Skills Folder**: `{}`", if home.join("skills").exists() { "Present" } else { "Missing" });
     println!("- **Plugins Folder**: `{}`", if home.join("plugins").exists() { "Present" } else { "Missing" });
 }
+
+// Rust guideline compliant 2026-02-21

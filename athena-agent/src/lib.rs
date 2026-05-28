@@ -11,3 +11,5 @@ pub use builder::*;
 pub use config::*;
 pub use messages::*;
 pub use context::*;
+
+// Rust guideline compliant 2026-02-21

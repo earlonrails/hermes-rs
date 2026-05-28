@@ -215,3 +215,4 @@ pub async fn serve_mcp(registry: Arc<ToolRegistry>) {
     server.run().await;
 }
 
+// Rust guideline compliant 2026-02-21

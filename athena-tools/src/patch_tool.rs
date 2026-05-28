@@ -84,3 +84,5 @@ mod tests {
         assert!(result.get("error").is_some() || result.get("success").is_some());
     }
 }
+
+// Rust guideline compliant 2026-02-21

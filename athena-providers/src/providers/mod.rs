@@ -4,3 +4,5 @@ pub mod openrouter;
 pub mod mistral;
 pub mod gemini;
 pub mod xai;
+
+// Rust guideline compliant 2026-02-21

@@ -24,3 +24,5 @@ async fn main() {
     
     println!("Resolved Key: {:?}", resolved_key.map(|s| format!("{}...", &s[0..4])));
 }
+
+// Rust guideline compliant 2026-02-21

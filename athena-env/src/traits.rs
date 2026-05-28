@@ -54,3 +54,5 @@ pub trait Environment: Send + Sync {
     /// Cleanup and destroy the environment
     async fn destroy(&self) -> Result<(), EnvError>;
 }
+
+// Rust guideline compliant 2026-02-21

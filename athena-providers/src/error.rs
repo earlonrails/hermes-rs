@@ -34,3 +34,5 @@ pub enum ProviderError {
 }
 
 pub type Result<T> = std::result::Result<T, ProviderError>;
+
+// Rust guideline compliant 2026-02-21

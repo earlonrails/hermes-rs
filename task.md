@@ -43,11 +43,10 @@
 - `[x]` Context Engine (`athena-agent/src/context.rs`)
     - `[x]` Implement token counting logic
     - `[x]` Implement message truncation and compression
-- `[x]` Code Execution Tool (`athena-tools/src/code_tool.rs`)
-    - `[x]` Implement basic AST evaluation or script runner
-- `[x]` TUI Gateway (`athena-tui-gateway`)
-    - `[x]` Create `athena-tui-gateway` crate
-    - `[x]` Implement JSON-RPC server over stdio
+- `[ ]` Code Execution Tool (`athena-tools/src/code_tool.rs`) (Minimal stub)
+- `[ ]` TUI Gateway (`athena-tui-gateway`) (Minimal JSON-RPC stub)
+    - `[ ]` Create `athena-tui-gateway` crate
+    - `[ ]` Implement JSON-RPC server over stdio
 
 # Phase 6: Provider Parity
 - `[x]` Implement robust LLM provider traits
@@ -88,11 +87,11 @@
     - `[x]` Chat
     - `[x]` Model
     - `[x]` Fallback
-    - `[x]` Gateway
-    - `[x]` Lsp
+    - `[x]` Gateway (Telegram only)
+    - `[ ]` Lsp (Minimal stub)
     - `[x]` Setup
-    - `[x]` Whatsapp
-    - `[x]` Slack
+    - `[ ]` Whatsapp (Config/Manifest only)
+    - `[ ]` Slack (Config/Manifest only)
     - `[x]` Login
     - `[x]` Logout
     - `[x]` Auth
@@ -125,8 +124,10 @@
     - `[x]` Acp
     - `[x]` Profile
     - `[x]` Completion
-    - `[x]` Dashboard
+    - `[ ]` Dashboard (Static HTML stub)
     - `[x]` Logs
+    - `[x]` ListTools (Implemented 2026-05-28)
+    - `[x]` ListToolsets (Implemented 2026-05-28)
 
 # Phase 14: Athena Rebranding 🦉
 - `[x]` Rebrand primary package and binary name from `hermes` to `athena` in Cargo files

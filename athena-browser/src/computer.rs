@@ -64,3 +64,5 @@ impl ComputerUse {
         Ok(encoded)
     }
 }
+
+// Rust guideline compliant 2026-02-21

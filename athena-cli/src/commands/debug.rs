@@ -87,3 +87,5 @@ pub fn run_debug() {
         println!("\n✗ Failed to save diagnostic report locally.");
     }
 }
+
+// Rust guideline compliant 2026-02-21

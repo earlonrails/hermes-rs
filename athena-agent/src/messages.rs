@@ -38,3 +38,5 @@ pub struct FunctionCall {
     pub name: String,
     pub arguments: String,
 }
+
+// Rust guideline compliant 2026-02-21

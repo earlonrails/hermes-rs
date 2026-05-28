@@ -181,3 +181,5 @@ mod tests {
         assert!(matches!(res, Err(EnvError::ExecutionFailed(_))));
     }
 }
+
+// Rust guideline compliant 2026-02-21

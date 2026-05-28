@@ -43,3 +43,5 @@ pub fn run_whatsapp() -> Result<()> {
     
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

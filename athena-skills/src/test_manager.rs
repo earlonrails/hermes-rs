@@ -8,3 +8,5 @@ fn main() {
         Err(e) => println!("Error: {:?}", e),
     }
 }
+
+// Rust guideline compliant 2026-02-21

@@ -24,3 +24,4 @@ hermes-agent-python/
 coverage_report.txt
 *_coverage.txt
 .fastembed_cache/
+GEMINI.md

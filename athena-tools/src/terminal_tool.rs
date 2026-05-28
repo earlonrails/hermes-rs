@@ -76,3 +76,5 @@ mod tests {
         assert!(result["stdout"].as_str().unwrap().contains("test"));
     }
 }
+
+// Rust guideline compliant 2026-02-21

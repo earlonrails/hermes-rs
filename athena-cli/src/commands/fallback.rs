@@ -53,3 +53,5 @@ pub fn run_fallback() -> Result<()> {
     }
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

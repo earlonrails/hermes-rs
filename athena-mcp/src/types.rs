@@ -44,3 +44,5 @@ pub struct CallToolResult {
     #[serde(default)]
     pub is_error: bool,
 }
+
+// Rust guideline compliant 2026-02-21

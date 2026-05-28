@@ -288,3 +288,5 @@ mod tests {
         assert!(!call_result.is_error);
     }
 }
+
+// Rust guideline compliant 2026-02-21

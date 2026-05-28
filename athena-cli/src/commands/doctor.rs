@@ -73,3 +73,5 @@ pub fn run_doctor() {
         println!("\n✗ Found {} issue(s). Please follow the recommendations above to resolve them.", issues_found);
     }
 }
+
+// Rust guideline compliant 2026-02-21

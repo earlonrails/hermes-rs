@@ -91,3 +91,5 @@ pub fn run_plugins() {
         _ => {}
     }
 }
+
+// Rust guideline compliant 2026-02-21

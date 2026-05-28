@@ -13,3 +13,5 @@ pub struct Skill {
     pub created_at: i64,
     pub updated_at: i64,
 }
+
+// Rust guideline compliant 2026-02-21

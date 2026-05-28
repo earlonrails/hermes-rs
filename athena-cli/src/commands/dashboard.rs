@@ -119,3 +119,5 @@ pub fn run_dashboard() {
         }
     }
 }
+
+// Rust guideline compliant 2026-02-21

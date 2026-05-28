@@ -48,3 +48,5 @@ pub fn run_memory() -> Result<()> {
     
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

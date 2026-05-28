@@ -10,3 +10,5 @@ pub extern "C" fn test_func() {
         log(msg.as_ptr(), msg.len() as i32);
     }
 }
+
+// Rust guideline compliant 2026-02-21

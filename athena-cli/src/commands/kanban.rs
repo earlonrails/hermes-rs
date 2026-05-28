@@ -137,3 +137,5 @@ pub fn run_kanban() -> Result<()> {
     
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

@@ -55,3 +55,5 @@ pub fn run_curator() {
 
     println!("\n✓ Curator service scan completed successfully!");
 }
+
+// Rust guideline compliant 2026-02-21

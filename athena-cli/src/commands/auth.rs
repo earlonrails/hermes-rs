@@ -81,3 +81,5 @@ pub fn run_auth() -> Result<()> {
     
     Ok(())
 }
+
+// Rust guideline compliant 2026-02-21

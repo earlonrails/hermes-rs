@@ -62,3 +62,5 @@ mod tests {
         assert_eq!(VisionProcessor::format_base64("image/png", "aGVsbG8="), expected);
     }
 }
+
+// Rust guideline compliant 2026-02-21

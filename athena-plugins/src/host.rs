@@ -38,3 +38,5 @@ mod tests {
         assert_eq!(Arc::strong_count(&registry), 2);
     }
 }
+
+// Rust guideline compliant 2026-02-21

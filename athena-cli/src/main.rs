@@ -7,6 +7,7 @@ use athena_agent::AIAgent;
 use athena_core::logging::{setup_logging, LoggingConfig, Mode};
 use athena_tools::ToolRegistry;
 use std::path::PathBuf;
+use std::collections::HashSet;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -342,10 +343,29 @@ async fn main() {
             }
         }
         Some(Commands::ListTools) => {
-            println!("Listing tools feature not yet implemented");
+            let registry = ToolRegistry::new();
+            println!("\nAvailable Tools:");
+            println!("═════════════════");
+            let tools = registry.get_all_tools().await;
+            for tool in tools {
+                println!("- {:<20} [{}]", tool.name(), tool.toolset());
+            }
         }
         Some(Commands::ListToolsets) => {
-            println!("Listing toolsets feature not yet implemented");
+            let registry = ToolRegistry::new();
+            let tools = registry.get_all_tools().await;
+            let mut toolsets = HashSet::new();
+            for tool in tools {
+                toolsets.insert(tool.toolset());
+            }
+
+            println!("\nAvailable Toolsets:");
+            println!("════════════════════");
+            let mut ts_vec: Vec<_> = toolsets.into_iter().collect();
+            ts_vec.sort();
+            for ts in ts_vec {
+                println!("- {}", ts);
+            }
         }
         Some(Commands::ConfigShow) => {
             if let Err(e) = commands::config::run_config_show() {
@@ -550,9 +570,9 @@ async fn main() {
                     }
                 }
             } else if args.resume.is_some() || args.continue_session.is_some() {
-                println!("Session resume not yet implemented");
+                println!("Session resume is currently under development (Phase 5). To view sessions, use 'athena sessions'.");
             } else if args.worktree {
-                println!("Worktree mode not yet implemented");
+                println!("Worktree isolation mode is currently under development (Phase 7).");
             } else {
                 // Regular interactive mode
                 let agent = builder.build();
@@ -679,3 +699,5 @@ mod tests {
         std::env::remove_var("MISTRAL_API_KEY");
     }
 }
+
+// Rust guideline compliant 2026-02-21

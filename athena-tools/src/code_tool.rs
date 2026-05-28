@@ -100,3 +100,5 @@ mod tests {
         assert_eq!(result["error"], "Unsupported language");
     }
 }
+
+// Rust guideline compliant 2026-02-21

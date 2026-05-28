@@ -183,3 +183,5 @@ mod tests {
         assert!(result.unwrap_err().contains("API error: 400"));
     }
 }
+
+// Rust guideline compliant 2026-02-21

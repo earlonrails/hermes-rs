@@ -117,4 +117,4 @@ fn default_model_for_provider(slug: &str) -> &'static str {
     }
 }
 
-
+// Rust guideline compliant 2026-02-21

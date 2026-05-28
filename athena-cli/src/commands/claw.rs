@@ -42,3 +42,5 @@ pub fn run_claw() {
         println!("✗ Failed to read legacy configuration file.");
     }
 }
+
+// Rust guideline compliant 2026-02-21

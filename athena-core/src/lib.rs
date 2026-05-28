@@ -5,3 +5,5 @@ pub mod logging;
 pub use config::*;
 pub use paths::*;
 pub use logging::*;
+
+// Rust guideline compliant 2026-02-21
