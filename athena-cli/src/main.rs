@@ -309,7 +309,13 @@ async fn main() {
     // Load default config
     let config = athena_core::config::load_config();
 
-    // Initialize agent builder with global options
+    if let Err(e) = execute_command(args, config).await {
+        eprintln!("Fatal error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+pub(crate) async fn execute_command(args: Args, config: athena_core::config::AthenaConfig) -> anyhow::Result<()> {
     let (builder, provider) = create_agent_builder(&config, &args);
 
     match &args.command {
@@ -582,6 +588,8 @@ async fn main() {
             }
         }
     }
+    
+    Ok(())
 }
 
 #[cfg(test)]
@@ -716,6 +724,34 @@ mod tests {
         let args = Args::parse_from(&["athena", "--model", "gpt-4", "chat"]);
         assert_eq!(args.model.unwrap(), "gpt-4");
         assert!(matches!(args.command, Some(Commands::Chat)));
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_non_interactive() {
+        use clap::Parser;
+        use athena_core::config::AthenaConfig;
+
+        let config = AthenaConfig::default();
+        
+        // Test ListTools
+        let args = Args::parse_from(&["athena", "list-tools"]);
+        let res = execute_command(args, config.clone()).await;
+        assert!(res.is_ok());
+
+        // Test ListToolsets
+        let args = Args::parse_from(&["athena", "list-toolsets"]);
+        let res = execute_command(args, config.clone()).await;
+        assert!(res.is_ok());
+
+        // Test ConfigShow
+        let args = Args::parse_from(&["athena", "config-show"]);
+        let res = execute_command(args, config.clone()).await;
+        assert!(res.is_ok());
+
+        // Test Version
+        let args = Args::parse_from(&["athena", "version"]);
+        let res = execute_command(args, config.clone()).await;
+        assert!(res.is_ok());
     }
 }
 

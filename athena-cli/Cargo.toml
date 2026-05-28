@@ -31,4 +31,6 @@ cliclack = "0.5.4"
 anyhow = "1.0.102"
 
 [dev-dependencies]
+async-trait = "0.1.89"
+tempfile = "3.27.0"
 wiremock = "0.6"

@@ -285,6 +285,7 @@ name = "athena"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "athena-agent",
  "athena-core",
  "athena-mcp",
@@ -302,6 +303,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "wiremock",
@@ -379,6 +381,8 @@ dependencies = [
 name = "athena-gateway"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
  "athena-agent",
  "athena-core",
  "athena-providers",

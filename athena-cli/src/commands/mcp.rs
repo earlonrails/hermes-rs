@@ -7,17 +7,64 @@ use athena_mcp::client::{McpClient, ExternalMcpTool};
 use athena_mcp::server::McpServer;
 use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-struct McpServersList {
-    servers: Vec<McpServerInfo>,
+use std::path::Path;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct McpServersList {
+    pub servers: Vec<McpServerInfo>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct McpServerInfo {
-    name: String,
-    command: String,
-    args: Vec<String>,
-    enabled: bool,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct McpServerInfo {
+    pub name: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub enabled: bool,
+}
+
+pub fn get_mcp_servers(file_path: &Path) -> McpServersList {
+    if file_path.exists() {
+        let content = fs::read_to_string(file_path).unwrap_or_default();
+        serde_json::from_str::<McpServersList>(&content).unwrap_or_default()
+    } else {
+        McpServersList::default()
+    }
+}
+
+pub fn save_mcp_servers(file_path: &Path, data: &McpServersList) -> Result<(), String> {
+    if let Ok(serialized) = serde_json::to_string_pretty(data) {
+        fs::write(file_path, serialized).map_err(|e| e.to_string())
+    } else {
+        Err("Failed to serialize".to_string())
+    }
+}
+
+pub fn add_mcp_server(file_path: &Path, info: McpServerInfo) -> Result<(), String> {
+    if info.name.is_empty() || info.command.is_empty() {
+        return Err("Server name and command cannot be empty.".to_string());
+    }
+    let mut data = get_mcp_servers(file_path);
+    data.servers.push(info);
+    save_mcp_servers(file_path, &data)
+}
+
+pub fn toggle_mcp_server(file_path: &Path, index: usize) -> Result<(), String> {
+    let mut data = get_mcp_servers(file_path);
+    if index >= data.servers.len() {
+        return Err("Invalid choice.".to_string());
+    }
+    data.servers[index].enabled = !data.servers[index].enabled;
+    save_mcp_servers(file_path, &data)
+}
+
+pub fn remove_mcp_server(file_path: &Path, index: usize) -> Result<McpServerInfo, String> {
+    let mut data = get_mcp_servers(file_path);
+    if index >= data.servers.len() {
+        return Err("Invalid choice.".to_string());
+    }
+    let removed = data.servers.remove(index);
+    save_mcp_servers(file_path, &data)?;
+    Ok(removed)
 }
 
 pub fn run_mcp() {
@@ -27,12 +74,7 @@ pub fn run_mcp() {
     println!();
 
     let mcp_file = get_athena_home().join("mcp_servers.json");
-    let mut data = if mcp_file.exists() {
-        let content = fs::read_to_string(&mcp_file).unwrap_or_default();
-        serde_json::from_str::<McpServersList>(&content).unwrap_or_default()
-    } else {
-        McpServersList::default()
-    };
+    let mut data = get_mcp_servers(&mcp_file);
 
     println!("Options:");
     println!("  1. List configured MCP servers");
@@ -82,11 +124,6 @@ pub fn run_mcp() {
             io::stdin().read_line(&mut command).ok();
             let command = command.trim().to_string();
 
-            if name.is_empty() || command.is_empty() {
-                println!("  ✗ Server name and command cannot be empty.");
-                return;
-            }
-
             print!("  Enter arguments (comma separated, e.g. -y, @modelcontextprotocol/server-memory): ");
             io::stdout().flush().ok();
             let mut args_in = String::new();
@@ -97,16 +134,16 @@ pub fn run_mcp() {
                 .filter(|s| !s.is_empty())
                 .collect();
 
-            data.servers.push(McpServerInfo {
+            let info = McpServerInfo {
                 name,
                 command,
                 args,
                 enabled: true,
-            });
+            };
 
-            if let Ok(serialized) = serde_json::to_string_pretty(&data) {
-                let _ = fs::write(&mcp_file, serialized);
-                println!("  ✓ MCP server successfully added.");
+            match add_mcp_server(&mcp_file, info) {
+                Ok(_) => println!("  ✓ MCP server successfully added."),
+                Err(e) => println!("  ✗ {}", e),
             }
         }
         3 => {
@@ -132,10 +169,9 @@ pub fn run_mcp() {
                 return;
             }
 
-            data.servers[s_choice - 1].enabled = !data.servers[s_choice - 1].enabled;
-            if let Ok(serialized) = serde_json::to_string_pretty(&data) {
-                let _ = fs::write(&mcp_file, serialized);
-                println!("  ✓ Toggled MCP server status.");
+            match toggle_mcp_server(&mcp_file, s_choice - 1) {
+                Ok(_) => println!("  ✓ Toggled MCP server status."),
+                Err(e) => println!("  ✗ {}", e),
             }
         }
         4 => {
@@ -161,10 +197,9 @@ pub fn run_mcp() {
                 return;
             }
 
-            let removed = data.servers.remove(s_choice - 1);
-            if let Ok(serialized) = serde_json::to_string_pretty(&data) {
-                let _ = fs::write(&mcp_file, serialized);
-                println!("  ✓ Removed MCP server: {}.", removed.name);
+            match remove_mcp_server(&mcp_file, s_choice - 1) {
+                Ok(removed) => println!("  ✓ Removed MCP server: {}.", removed.name),
+                Err(e) => println!("  ✗ {}", e),
             }
         }
         _ => {}
@@ -213,6 +248,60 @@ pub async fn load_mcp_servers_into_registry(registry: &ToolRegistry) {
 pub async fn serve_mcp(registry: Arc<ToolRegistry>) {
     let server = McpServer::new(registry);
     server.run().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_mcp_server_management() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("mcp_servers.json");
+
+        // Initial state should be empty
+        let initial = get_mcp_servers(&file_path);
+        assert!(initial.servers.is_empty());
+
+        // Add a server
+        let info = McpServerInfo {
+            name: "test_server".to_string(),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "test".to_string()],
+            enabled: true,
+        };
+        assert!(add_mcp_server(&file_path, info.clone()).is_ok());
+
+        let after_add = get_mcp_servers(&file_path);
+        assert_eq!(after_add.servers.len(), 1);
+        assert_eq!(after_add.servers[0].name, "test_server");
+        assert!(after_add.servers[0].enabled);
+
+        // Toggle the server
+        assert!(toggle_mcp_server(&file_path, 0).is_ok());
+        let after_toggle = get_mcp_servers(&file_path);
+        assert!(!after_toggle.servers[0].enabled);
+
+        // Remove the server
+        let removed = remove_mcp_server(&file_path, 0).unwrap();
+        assert_eq!(removed.name, "test_server");
+
+        let after_remove = get_mcp_servers(&file_path);
+        assert!(after_remove.servers.is_empty());
+
+        // Test error conditions
+        assert!(toggle_mcp_server(&file_path, 0).is_err());
+        assert!(remove_mcp_server(&file_path, 0).is_err());
+        
+        let empty_info = McpServerInfo {
+            name: "".to_string(),
+            command: "".to_string(),
+            args: vec![],
+            enabled: true,
+        };
+        assert!(add_mcp_server(&file_path, empty_info).is_err());
+    }
 }
 
 // Rust guideline compliant 2026-02-21

@@ -27,6 +27,52 @@ pub fn run_setup() -> Result<()> {
     Ok(())
 }
 
+pub fn apply_model_provider(config: &mut athena_core::config::AthenaConfig, slug: &str, default_model: &str) {
+    config.model.provider = slug.to_string();
+    config.model.default = default_model.to_string();
+}
+
+pub fn get_env_key_for_provider(slug: &str) -> &'static str {
+    match slug {
+        "openai" => "OPENAI_API_KEY",
+        "anthropic" => "ANTHROPIC_API_KEY",
+        "openrouter" => "OPENROUTER_API_KEY",
+        "google" => "GOOGLE_API_KEY",
+        "deepseek" => "DEEPSEEK_API_KEY",
+        "groq" => "GROQ_API_KEY",
+        "mistral" => "MISTRAL_API_KEY",
+        "xai" => "XAI_API_KEY",
+        _ => "",
+    }
+}
+
+pub fn get_default_model_for_provider(slug: &str) -> &'static str {
+    match slug {
+        "openai" => "gpt-4o",
+        "anthropic" => "claude-sonnet-4-20250514",
+        "openrouter" => "openai/gpt-4o",
+        "google" => "gemini-2.5-pro",
+        "deepseek" => "deepseek-chat",
+        "groq" => "llama-3.3-70b-versatile",
+        "mistral" => "mistral-large-latest",
+        "xai" => "grok-3",
+        _ => "gpt-4o",
+    }
+}
+
+pub fn apply_terminal_backend(config: &mut athena_core::config::AthenaConfig, backend: &str) {
+    config.terminal_backend = backend.to_string();
+}
+
+pub fn apply_agent_iterations(config: &mut athena_core::config::AthenaConfig, max_iter: u32) {
+    config.agent.max_iterations = max_iter;
+}
+
+pub fn apply_gateway_settings(config: &mut athena_core::config::AthenaConfig, enable_telegram: bool, enable_discord: bool) {
+    config.gateway.telegram_enabled = enable_telegram;
+    config.gateway.discord_enabled = enable_discord;
+}
+
 fn setup_model_provider(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
     let providers = [
         ("openai", "OpenAI", "GPT-4o, o1, o3, ..."),
@@ -50,21 +96,8 @@ fn setup_model_provider(config: &mut athena_core::config::AthenaConfig) -> Resul
     }
     
     let slug: String = select_prompt.interact()?.to_string();
-    config.model.provider = slug.clone();
 
-    // API Key
-    let env_key = match slug.as_str() {
-        "openai" => "OPENAI_API_KEY",
-        "anthropic" => "ANTHROPIC_API_KEY",
-        "openrouter" => "OPENROUTER_API_KEY",
-        "google" => "GOOGLE_API_KEY",
-        "deepseek" => "DEEPSEEK_API_KEY",
-        "groq" => "GROQ_API_KEY",
-        "mistral" => "MISTRAL_API_KEY",
-        "xai" => "XAI_API_KEY",
-        _ => "",
-    };
-
+    let env_key = get_env_key_for_provider(&slug);
     if !env_key.is_empty() {
         let current = get_env_value(env_key);
         if current.is_some() {
@@ -90,29 +123,18 @@ fn setup_model_provider(config: &mut athena_core::config::AthenaConfig) -> Resul
         }
     }
 
-    // Default model
-    let default_model = match slug.as_str() {
-        "openai" => "gpt-4o",
-        "anthropic" => "claude-sonnet-4-20250514",
-        "openrouter" => "openai/gpt-4o",
-        "google" => "gemini-2.5-pro",
-        "deepseek" => "deepseek-chat",
-        "groq" => "llama-3.3-70b-versatile",
-        "mistral" => "mistral-large-latest",
-        "xai" => "grok-3",
-        _ => "gpt-4o",
-    };
-
+    let default_model = get_default_model_for_provider(&slug);
     let model_input: String = input("Default model")
         .default_input(default_model)
         .interact()?;
     
-    config.model.default = if model_input.is_empty() {
+    let final_model = if model_input.is_empty() {
         default_model.to_string()
     } else {
         model_input
     };
 
+    apply_model_provider(config, &slug, &final_model);
     Ok(())
 }
 
@@ -128,7 +150,7 @@ fn setup_terminal_backend(config: &mut athena_core::config::AthenaConfig) -> Res
     }
         
     let backend: String = select_prompt.interact()?.to_string();
-    config.terminal_backend = backend;
+    apply_terminal_backend(config, &backend);
     Ok(())
 }
 
@@ -138,7 +160,7 @@ fn setup_agent_settings(config: &mut athena_core::config::AthenaConfig) -> Resul
         .interact()?;
         
     if let Ok(n) = max_iter.parse::<u32>() {
-        config.agent.max_iterations = n;
+        apply_agent_iterations(config, n);
     }
     
     Ok(())
@@ -146,7 +168,6 @@ fn setup_agent_settings(config: &mut athena_core::config::AthenaConfig) -> Resul
 
 fn setup_gateway(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
     let enable_telegram: bool = confirm("Enable Telegram?").initial_value(config.gateway.telegram_enabled).interact()?;
-    config.gateway.telegram_enabled = enable_telegram;
     
     if enable_telegram {
         if get_env_value("TELEGRAM_BOT_TOKEN").is_none() {
@@ -160,7 +181,6 @@ fn setup_gateway(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
     }
 
     let enable_discord: bool = confirm("Enable Discord?").initial_value(config.gateway.discord_enabled).interact()?;
-    config.gateway.discord_enabled = enable_discord;
     
     if enable_discord {
         if get_env_value("DISCORD_BOT_TOKEN").is_none() {
@@ -173,7 +193,58 @@ fn setup_gateway(config: &mut athena_core::config::AthenaConfig) -> Result<()> {
         }
     }
 
+    apply_gateway_settings(config, enable_telegram, enable_discord);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use athena_core::config::AthenaConfig;
+
+    #[test]
+    fn test_apply_model_provider() {
+        let mut config = AthenaConfig::default();
+        apply_model_provider(&mut config, "anthropic", "claude-opus");
+        assert_eq!(config.model.provider, "anthropic");
+        assert_eq!(config.model.default, "claude-opus");
+    }
+
+    #[test]
+    fn test_get_env_key_for_provider() {
+        assert_eq!(get_env_key_for_provider("openai"), "OPENAI_API_KEY");
+        assert_eq!(get_env_key_for_provider("mistral"), "MISTRAL_API_KEY");
+        assert_eq!(get_env_key_for_provider("unknown"), "");
+    }
+
+    #[test]
+    fn test_get_default_model_for_provider() {
+        assert_eq!(get_default_model_for_provider("openai"), "gpt-4o");
+        assert_eq!(get_default_model_for_provider("google"), "gemini-2.5-pro");
+        assert_eq!(get_default_model_for_provider("unknown"), "gpt-4o");
+    }
+
+    #[test]
+    fn test_apply_terminal_backend() {
+        let mut config = AthenaConfig::default();
+        apply_terminal_backend(&mut config, "docker");
+        assert_eq!(config.terminal_backend, "docker");
+    }
+
+    #[test]
+    fn test_apply_agent_iterations() {
+        let mut config = AthenaConfig::default();
+        apply_agent_iterations(&mut config, 42);
+        assert_eq!(config.agent.max_iterations, 42);
+    }
+
+    #[test]
+    fn test_apply_gateway_settings() {
+        let mut config = AthenaConfig::default();
+        apply_gateway_settings(&mut config, true, false);
+        assert!(config.gateway.telegram_enabled);
+        assert!(!config.gateway.discord_enabled);
+    }
 }
 
 // Rust guideline compliant 2026-02-21
