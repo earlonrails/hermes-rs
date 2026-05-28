@@ -685,6 +685,38 @@ mod tests {
 
         assert_eq!(response, "Hello from mock Mistral!");
     }
+
+    #[test]
+    fn test_cli_parsing() {
+        use clap::Parser;
+
+        // Test normal chat
+        let args = Args::parse_from(&["athena", "chat"]);
+        assert!(matches!(args.command, Some(Commands::Chat)));
+
+        // Test query with toolsets
+        let args = Args::parse_from(&["athena", "query", "what is 2+2", "-t", "math,web"]);
+        match args.command.unwrap() {
+            Commands::Query { query, toolsets, skills } => {
+                assert_eq!(query, "what is 2+2");
+                assert_eq!(toolsets.unwrap(), "math,web");
+                assert!(skills.is_none());
+            }
+            _ => panic!("Expected Query command"),
+        }
+
+        // Test gateway commands
+        let args = Args::parse_from(&["athena", "gateway", "start"]);
+        match args.command.unwrap() {
+            Commands::Gateway { command: Some(GatewayCommands::Start) } => {}
+            _ => panic!("Expected Gateway Start command"),
+        }
+
+        // Test global flags
+        let args = Args::parse_from(&["athena", "--model", "gpt-4", "chat"]);
+        assert_eq!(args.model.unwrap(), "gpt-4");
+        assert!(matches!(args.command, Some(Commands::Chat)));
+    }
 }
 
 // Rust guideline compliant 2026-02-21

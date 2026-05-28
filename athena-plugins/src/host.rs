@@ -37,6 +37,12 @@ mod tests {
     }
 
     #[test]
+    fn test_athena_host_default() {
+        let host = AthenaHost::default();
+        assert!(host.registry.is_none());
+    }
+
+    #[test]
     fn test_athena_host_with_registry() {
         let registry = Arc::new(ToolRegistry::new());
         let host = AthenaHost::with_registry(registry.clone());

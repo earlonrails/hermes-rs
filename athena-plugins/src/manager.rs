@@ -151,6 +151,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_execute_plugin_fuel_exhausted() {
+        let manager = PluginManager::new().unwrap();
+
+        let wat_content = r#"
+        (module
+            (func (export "test_func")
+                loop
+                    br 0
+                end
+            )
+        )
+        "#;
+
+        let temp_file = env::temp_dir().join("test_plugin_loop.wat");
+        fs::write(&temp_file, wat_content).unwrap();
+
+        let name = manager.load_plugin(&temp_file).await.unwrap();
+        
+        let exec_err = manager.execute_plugin(&name, "test_func").await;
+        assert!(exec_err.is_err());
+    }
+
+    #[tokio::test]
     async fn test_load_and_execute_real_rust_plugin() {
         // Compile the plugin first using cargo (if target exists)
         // We ignore the error if wasm32-wasip1 isn't installed in the test environment,
