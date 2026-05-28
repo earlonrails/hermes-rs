@@ -601,7 +601,7 @@ mod tests {
         let args = Args {
             workspace: None,
             model: None,
-            api_key: None,
+            api_key: Some("dummy_mistral_key".to_string()),
             base_url: None,
             max_turns: None,
             oneshot: None,
@@ -613,19 +613,11 @@ mod tests {
             command: None,
         };
 
-        // Ensure env var OPENAI_API_KEY is not interfering
-        std::env::remove_var("OPENAI_API_KEY");
-        // Inject a dummy mistral key for testing
-        std::env::set_var("MISTRAL_API_KEY", "dummy_mistral_key");
-
         let builder = create_agent_builder(&config, &args);
         let agent = builder.0.build();
 
         assert_eq!(agent.base_url(), Some("https://api.mistral.ai/v1"));
         assert_eq!(agent.api_key(), Some("dummy_mistral_key"));
-        
-        // Clean up
-        std::env::remove_var("MISTRAL_API_KEY");
     }
 
     #[tokio::test]
@@ -669,7 +661,7 @@ mod tests {
         let args = Args {
             workspace: None,
             model: None,
-            api_key: None,
+            api_key: Some("dummy_mistral_key".to_string()),
             base_url: Some(format!("{}/v1", mock_server.uri())),
             max_turns: None,
             oneshot: None,
@@ -680,9 +672,6 @@ mod tests {
             worktree: false,
             command: None,
         };
-
-        std::env::remove_var("OPENAI_API_KEY");
-        std::env::set_var("MISTRAL_API_KEY", "dummy_mistral_key");
 
         // 4. Build the agent
         let (mut builder, provider) = create_agent_builder(&config, &args);
@@ -695,8 +684,6 @@ mod tests {
         let response = agent.run_conversation("Say hi", None, &registry, provider).await.unwrap();
 
         assert_eq!(response, "Hello from mock Mistral!");
-
-        std::env::remove_var("MISTRAL_API_KEY");
     }
 }
 
