@@ -22,13 +22,13 @@ pub async fn setup_cron_jobs(
         let job_provider = provider.clone();
         let query = cron.query.clone();
         let schedule = cron.schedule.clone();
-        
+
         let job = Job::new_async(schedule.as_str(), move |_uuid, mut _l| {
             let agent_clone = job_agent.clone();
             let registry_clone = job_registry.clone();
             let provider_clone = job_provider.clone();
             let query_clone = query.clone();
-            
+
             Box::pin(async move {
                 info!("Executing cron job: '{}'", query_clone);
                 let mut locked_agent = agent_clone.lock().await;
@@ -52,7 +52,7 @@ pub async fn setup_cron_jobs(
             Err(e) => error!("Invalid cron schedule '{}' for query '{}': {}", cron.schedule, cron.query, e),
         }
     }
-    
+
     Ok(())
 }
 
@@ -62,10 +62,11 @@ pub async fn process_gateway_message(
     registry: Arc<ToolRegistry>,
     provider: Arc<dyn LLMProvider + Send + Sync>
 ) -> anyhow::Result<String> {
+    let system_prompt = "You are Athena, a powerful AI assistant running locally on the user's system via a channel gateway. You have full access to execute terminal commands, read files, and automate tasks through your tools. Do not decline requests to run commands on the user's system. Use your provided tools to accomplish the user's goals.";
     let mut locked_agent = agent.lock().await;
     let response = locked_agent.run_conversation(
         text,
-        Some("You are a helpful assistant talking over Telegram."),
+        Some(system_prompt),
         &registry,
         provider
     ).await.map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -74,14 +75,15 @@ pub async fn process_gateway_message(
 
 #[tokio::main]
 async fn main() {
-    let _ = dotenvy::dotenv();
+    let env_path = athena_core::paths::get_athena_home().join(".env");
+    let _ = dotenvy::from_path(env_path);
 
     setup_logging(LoggingConfig {
         mode: Some(Mode::Gateway),
         ..Default::default()
     });
 
-    info!("Starting Athena Telegram Gateway...");
+    info!("🦉 Starting Athena Telegram Gateway...");
 
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .or_else(|_| std::env::var("TELOXIDE_TOKEN"))
@@ -111,11 +113,11 @@ async fn main() {
     if !config.cron_jobs.is_empty() {
         if let Ok(sched) = JobScheduler::new().await {
             info!("Initializing {} cron jobs from config...", config.cron_jobs.len());
-            
+
             if let Err(e) = setup_cron_jobs(&sched, config.cron_jobs, agent.clone(), arc_registry.clone(), provider.clone()).await {
                 error!("Error setting up cron jobs: {}", e);
             }
-            
+
             if let Err(e) = sched.start().await {
                 error!("Failed to start JobScheduler: {}", e);
             } else {
@@ -174,7 +176,7 @@ mod tests {
         fn profile(&self) -> &athena_providers::ProviderProfile {
             &self.profile
         }
-        
+
         async fn fetch_models(
             &self,
             _api_key: Option<&str>,
@@ -182,7 +184,7 @@ mod tests {
         ) -> Result<Vec<String>, athena_providers::ProviderError> {
             Ok(vec![])
         }
-        
+
         async fn create_chat_completion(
             &self,
             _request: athena_providers::ChatCompletionRequest,
@@ -207,7 +209,7 @@ mod tests {
                 created: 0,
             })
         }
-        
+
         async fn create_chat_completion_stream(
             &self,
             _request: athena_providers::ChatCompletionRequest,
@@ -221,7 +223,7 @@ mod tests {
         let agent = Arc::new(Mutex::new(AIAgent::builder().model("dummy-model".to_string()).build()));
         let registry = Arc::new(ToolRegistry::new());
         let provider: Arc<dyn LLMProvider + Send + Sync> = Arc::new(DummyProvider::default());
-        
+
         let result = process_gateway_message("Hello from Telegram", agent, registry, provider).await.unwrap();
         assert_eq!(result, "Mock response");
     }

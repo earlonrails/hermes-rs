@@ -101,11 +101,15 @@ impl ToolRegistry {
         let r = self.tools.read().await;
         let mut result = Vec::new();
 
-        let mut sorted_names: Vec<_> = tool_names.iter().collect();
+        let mut sorted_names: Vec<_> = if tool_names.is_empty() {
+            r.keys().cloned().collect()
+        } else {
+            tool_names.iter().cloned().collect()
+        };
         sorted_names.sort();
 
         for name in sorted_names {
-            if let Some(tool) = r.get(name) {
+            if let Some(tool) = r.get(&name) {
                 if !tool.check_fn() {
                     if !quiet {
                         debug!("Tool {} unavailable (check failed)", name);

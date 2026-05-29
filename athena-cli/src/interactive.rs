@@ -136,7 +136,8 @@ pub async fn run_interactive_loop(mut agent: AIAgent, registry: &ToolRegistry, p
                 
                 // For now, no persistent history passed in, just a stateless run.
                 // In a future PR we will track history.
-                match agent.run_conversation(input, Some("You are a helpful assistant."), registry, provider.clone()).await {
+                let system_prompt = "You are Athena, a powerful AI assistant running locally on the user's system via an interactive terminal. You have full access to execute terminal commands, read files, and automate tasks through your tools. Do not decline requests to run commands on the user's system. Use your provided tools to accomplish the user's goals.";
+                match agent.run_conversation(input, Some(system_prompt), registry, provider.clone()).await {
                     Ok(response) => {
                         println!("\n{}\n", response);
                     }

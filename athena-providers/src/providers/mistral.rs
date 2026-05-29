@@ -52,6 +52,105 @@ impl MistralProvider {
             profile: mistral_profile(),
         }
     }
+
+    fn build_mistral_request(&self, request: &ChatCompletionRequest) -> serde_json::Value {
+        let mut body = serde_json::json!({
+            "model": request.model,
+        });
+
+        let mut messages = Vec::new();
+        for msg in &request.messages {
+            let mut msg_obj = serde_json::json!({
+                "role": match msg.role {
+                    MessageRole::System => "system",
+                    MessageRole::User => "user",
+                    MessageRole::Assistant => "assistant",
+                    MessageRole::Tool => "tool",
+                },
+                "content": msg.content,
+            });
+
+            if let Some(tool_calls) = &msg.tool_calls {
+                let tcs: Vec<_> = tool_calls.iter().map(|tc| {
+                    serde_json::json!({
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    })
+                }).collect();
+                msg_obj["tool_calls"] = serde_json::Value::Array(tcs);
+            }
+
+            if let Some(tool_call_id) = &msg.tool_call_id {
+                msg_obj["tool_call_id"] = serde_json::Value::String(tool_call_id.clone());
+            }
+
+            if let Some(name) = &msg.name {
+                msg_obj["name"] = serde_json::Value::String(name.clone());
+            }
+
+            messages.push(msg_obj);
+        }
+        body["messages"] = serde_json::Value::Array(messages);
+
+        if let Some(temp) = request.temperature {
+            if let Some(n) = serde_json::Number::from_f64(temp as f64) {
+                body["temperature"] = serde_json::Value::Number(n);
+            }
+        }
+        if let Some(max_tokens) = request.max_tokens {
+            body["max_tokens"] = serde_json::Value::Number(serde_json::Number::from(max_tokens));
+        }
+        if let Some(top_p) = request.top_p {
+            if let Some(n) = serde_json::Number::from_f64(top_p as f64) {
+                body["top_p"] = serde_json::Value::Number(n);
+            }
+        }
+        if let Some(stop) = &request.stop {
+            body["stop"] = serde_json::Value::Array(
+                stop.iter().map(|s| serde_json::Value::String(s.clone())).collect()
+            );
+        }
+
+        if let Some(tools) = &request.tools {
+            let mistral_tools: Vec<_> = tools.iter().map(|t| {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": t.function.name,
+                        "description": t.function.description.clone().unwrap_or_default(),
+                        "parameters": t.function.parameters.clone()
+                    }
+                })
+            }).collect();
+            if !mistral_tools.is_empty() {
+                body["tools"] = serde_json::Value::Array(mistral_tools);
+            }
+        }
+
+        if let Some(tool_choice) = &request.tool_choice {
+            match tool_choice {
+                ToolChoice::Auto => body["tool_choice"] = serde_json::Value::String("auto".to_string()),
+                ToolChoice::Required => body["tool_choice"] = serde_json::Value::String("any".to_string()),
+                ToolChoice::Specific(name) => {
+                    body["tool_choice"] = serde_json::json!({
+                        "type": "function",
+                        "function": { "name": name }
+                    });
+                }
+                ToolChoice::None => body["tool_choice"] = serde_json::Value::String("none".to_string()),
+            }
+        }
+
+        for (key, value) in &request.extra_body {
+            body[key] = value.clone();
+        }
+
+        body
+    }
 }
 
 #[async_trait]
@@ -103,17 +202,120 @@ impl LLMProvider for MistralProvider {
             .collect())
     }
     
+
     async fn create_chat_completion(
         &self,
         request: ChatCompletionRequest,
     ) -> std::result::Result<ChatCompletionResponse, ProviderError> {
-        let openai_provider = super::openai::OpenAIProvider::new_with_profile(
-            request.api_key_override.clone(),
-            request.base_url_override.clone().or_else(|| Some(self.profile.base_url.clone())),
-            self.profile.clone(),
-        );
+        let body = self.build_mistral_request(&request);
         
-        openai_provider.create_chat_completion(request).await
+        let client = reqwest::Client::new();
+        let url = format!("{}/chat/completions", request.base_url_override.as_deref().unwrap_or(&self.profile.base_url));
+        
+        let mut request_builder = client.request(reqwest::Method::POST, &url);
+        
+        let mut resolved_key = request.api_key_override.clone();
+        if resolved_key.is_none() {
+            for env_var in &self.profile.env_vars {
+                if let Some(val) = athena_core::config::get_env_value(env_var) {
+                    resolved_key = Some(val);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(api_key) = resolved_key {
+            request_builder = request_builder.header("Authorization", format!("Bearer {}", api_key));
+        }
+        
+        request_builder = request_builder
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json");
+        
+        for (key, value) in &self.profile.default_headers {
+            request_builder = request_builder.header(key, value);
+        }
+        
+        let response = request_builder
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::ApiRequestFailed(e.to_string()))?;
+        
+        if !response.status().is_success() {
+            return Err(ProviderError::ApiRequestFailed(format!(
+                "HTTP {}: {}", 
+                response.status(), 
+                response.text().await.unwrap_or_default()
+            )));
+        }
+        
+        let data: serde_json::Value = response.json().await
+            .map_err(|e| ProviderError::InvalidResponseFormat(e.to_string()))?;
+        
+        let default_vec = Vec::new();
+        let choices_arr = data.get("choices").and_then(|c| c.as_array()).unwrap_or(&default_vec);
+        let mut choices = Vec::new();
+        
+        for choice_json in choices_arr {
+            let index = choice_json.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+            let msg = choice_json.get("message");
+            
+            let mut tool_calls = Vec::new();
+            if let Some(msg_obj) = msg {
+                if let Some(tcs) = msg_obj.get("tool_calls").and_then(|t| t.as_array()) {
+                    for tc in tcs {
+                        let id = tc.get("id").and_then(|i| i.as_str()).unwrap_or_default().to_string();
+                        let func = tc.get("function");
+                        let name = func.and_then(|f| f.get("name")).and_then(|n| n.as_str()).unwrap_or_default().to_string();
+                        let arguments = func.and_then(|f| f.get("arguments")).and_then(|a| a.as_str()).unwrap_or_default().to_string();
+                        
+                        tool_calls.push(ToolCall {
+                            id,
+                            r#type: "function".to_string(), // Manually insert type!
+                            function: ToolFunction {
+                                name,
+                                arguments,
+                            }
+                        });
+                    }
+                }
+            }
+            
+            let message = ChatMessage {
+                role: match msg.and_then(|m| m.get("role")).and_then(|r| r.as_str()).unwrap_or("assistant") {
+                    "system" => MessageRole::System,
+                    "user" => MessageRole::User,
+                    "assistant" => MessageRole::Assistant,
+                    "tool" => MessageRole::Tool,
+                    _ => MessageRole::Assistant,
+                },
+                content: msg.and_then(|m| m.get("content")).and_then(|c| c.as_str()).unwrap_or_default().to_string(),
+                name: None,
+                tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+                tool_call_id: None,
+            };
+            
+            choices.push(Choice {
+                index,
+                message,
+                finish_reason: choice_json.get("finish_reason").and_then(|f| f.as_str()).map(|s| s.to_string()),
+            });
+        }
+        
+        let usage = data.get("usage").map(|u| Usage {
+            prompt_tokens: u.get("prompt_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
+            completion_tokens: u.get("completion_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
+            total_tokens: u.get("total_tokens").and_then(|t| t.as_u64()).unwrap_or(0),
+        });
+        
+        Ok(ChatCompletionResponse {
+            id: data.get("id").and_then(|id| id.as_str()).unwrap_or_default().to_string(),
+            model: data.get("model").and_then(|m| m.as_str()).unwrap_or_default().to_string(),
+            created: data.get("created").and_then(|c| c.as_u64()).unwrap_or(0),
+            choices,
+            usage,
+        })
     }
     
     async fn create_chat_completion_stream(

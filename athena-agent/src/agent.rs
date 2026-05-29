@@ -115,6 +115,7 @@ impl AIAgent {
                 }
             }
 
+            let has_tools = !api_tools.is_empty();
             let request = ChatCompletionRequest {
                 model: self.config.model.clone(),
                 messages: api_messages,
@@ -123,8 +124,8 @@ impl AIAgent {
                 top_p: None,
                 stop: None,
                 stream: false,
-                tools: if api_tools.is_empty() { None } else { Some(api_tools) },
-                tool_choice: None,
+                tools: if has_tools { Some(api_tools) } else { None },
+                tool_choice: if has_tools { Some(athena_providers::ToolChoice::Auto) } else { None },
                 extra_body: std::collections::HashMap::new(),
                 api_key_override: self.config.api_key.clone(),
                 base_url_override: self.config.base_url.clone(),
