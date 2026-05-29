@@ -72,6 +72,8 @@ pub enum GatewayCommands {
     Status,
     /// View gateway service logs
     Logs,
+    /// Run the gateway service in the foreground
+    Run,
 }
 
 #[derive(Subcommand, Debug)]
@@ -551,7 +553,7 @@ pub(crate) async fn execute_command(args: Args, config: athena_core::config::Ath
             commands::completion::run_completion();
         }
         Some(Commands::Dashboard) => {
-            commands::dashboard::run_dashboard();
+            commands::dashboard::run_dashboard().await;
         }
         Some(Commands::Logs) => {
             if let Err(e) = commands::logs::run_logs() {

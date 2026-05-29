@@ -46,6 +46,10 @@ pub fn run_doctor() {
         "ANTHROPIC_API_KEY",
         "OPENROUTER_API_KEY",
         "GOOGLE_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "GROQ_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY",
     ];
     let mut keys_found = 0;
     for key in &env_keys {

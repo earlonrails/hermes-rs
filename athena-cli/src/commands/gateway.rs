@@ -10,6 +10,7 @@ pub fn run_gateway(command: &Option<GatewayCommands>) {
         Some(GatewayCommands::Stop) => stop_gateway(),
         Some(GatewayCommands::Status) => status_gateway(),
         Some(GatewayCommands::Logs) => logs_gateway(),
+        Some(GatewayCommands::Run) => run_foreground_gateway(),
         None => interactive_menu(),
     }
 }
@@ -22,6 +23,7 @@ fn interactive_menu() {
         .item("start", "Start background gateway", "")
         .item("stop", "Stop background gateway", "")
         .item("logs", "View gateway logs", "")
+        .item("run", "Run gateway in foreground", "")
         .item("install", "Install systemd user service", "")
         .item("exit", "Exit", "")
         .interact();
@@ -31,6 +33,7 @@ fn interactive_menu() {
         Ok("start") => start_gateway(),
         Ok("stop") => stop_gateway(),
         Ok("logs") => logs_gateway(),
+        Ok("run") => run_foreground_gateway(),
         Ok("install") => install_gateway(),
         _ => {
             outro("Goodbye!").ok();
@@ -184,4 +187,36 @@ fn logs_gateway() {
     let _ = child.wait();
 }
 
+fn run_foreground_gateway() {
+    intro("Running Athena Gateway in Foreground").ok();
+
+    let exe_path = std::env::current_exe()
+        .unwrap_or_else(|_| PathBuf::from("athena"));
+    let exe_dir = exe_path.parent().unwrap_or(std::path::Path::new("/usr/local/bin"));
+    let gateway_binary = exe_dir.join("athena-gateway");
+
+    if !gateway_binary.exists() {
+        note("Warning", format!("Could not find athena-gateway at {:?}. Will assume it's in your PATH.", gateway_binary)).ok();
+    }
+
+    note("Info", "Starting Athena Telegram Gateway in foreground.\nThis gateway connects via Telegram long-polling and does NOT bind to a local HTTP port.").ok();
+
+    let cmd = if gateway_binary.exists() { 
+        gateway_binary.to_str().unwrap() 
+    } else { 
+        "athena-gateway" 
+    };
+
+    let mut child = Command::new(cmd)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap_or_else(|e| panic!("Failed to start athena-gateway (tried {}): {}", cmd, e));
+        
+    let _ = child.wait();
+    outro("Gateway stopped.").ok();
+}
+
 // Rust guideline compliant 2026-02-21
+

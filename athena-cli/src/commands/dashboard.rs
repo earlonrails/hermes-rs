@@ -1,14 +1,81 @@
-use std::net::TcpListener;
-use std::io::{Write, Read};
+use axum::{
+    routing::{get, delete},
+    Router,
+    response::Json,
+    extract::{ws::{WebSocketUpgrade, WebSocket}, State, Path},
+};
+use tower_http::services::ServeDir;
+use tower_http::cors::CorsLayer;
+use std::net::SocketAddr;
+use std::sync::Arc;
 
-pub fn run_dashboard() {
+use athena_core::config::{load_config, save_config, AthenaConfig};
+use athena_core::paths::get_athena_home;
+use athena_agent::AIAgent;
+use athena_tools::ToolRegistry;
+use athena_providers::LLMProvider;
+
+#[derive(Clone)]
+struct AppState {
+    registry: Arc<ToolRegistry>,
+    provider: Arc<dyn LLMProvider + Send + Sync>,
+}
+
+#[derive(serde::Serialize)]
+struct SkillInfo {
+    name: String,
+    path: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CreateSkillReq {
+    name: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CreatePluginReq {
+    name: String,
+}
+
+pub async fn run_dashboard() {
     println!("\nAthena Web GUI Dashboard");
     println!("══════════════════════════\n");
     println!("Launching local dashboard at http://localhost:8000...");
     println!("Press Ctrl+C to stop.");
     println!();
 
-    let listener = match TcpListener::bind("127.0.0.1:8000") {
+    let mut web_dir = std::env::current_exe()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+        
+    if std::path::Path::new("apps/dashboard/dist").exists() {
+        web_dir = std::path::PathBuf::from("apps/dashboard/dist");
+    } else {
+        web_dir = web_dir.join("dist"); 
+    }
+
+    athena_providers::registry::init_builtin_providers();
+    let provider = athena_providers::registry::get_provider("openai").unwrap();
+    let registry = Arc::new(ToolRegistry::new());
+
+    let state = AppState { registry, provider };
+
+    let app = Router::new()
+        .route("/api/config", get(get_config).post(update_config))
+        .route("/api/skills", get(get_skills).post(add_skill))
+        .route("/api/skills/:name", delete(remove_skill))
+        .route("/api/plugins", get(get_plugins).post(add_plugin))
+        .route("/api/plugins/:name", delete(remove_plugin))
+        .route("/api/mcp", get(get_mcp).post(update_mcp))
+        .route("/api/chat", get(ws_handler))
+        .fallback_service(ServeDir::new(&web_dir))
+        .layer(CorsLayer::permissive())
+        .with_state(state);
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
             println!("✗ Failed to bind to port 8000: {}. Is another server running?", e);
@@ -16,106 +83,143 @@ pub fn run_dashboard() {
         }
     };
 
-    let html_content = r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Athena Agent Dashboard</title>
-    <style>
-        body {
-            background: linear-gradient(135deg, #0f172a, #1e1b4b);
-            color: #f8fafc;
-            font-family: 'Outfit', -apple-system, sans-serif;
-            margin: 0;
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .dashboard {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 40px;
-            width: 100%;
-            max-width: 800px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-        }
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 8px;
-            background: linear-gradient(to right, #38bdf8, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .subtitle {
-            color: #94a3b8;
-            margin-bottom: 40px;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 24px;
-        }
-        .card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 24px;
-            transition: all 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(99, 102, 241, 0.3);
-            background: rgba(255, 255, 255, 0.04);
-        }
-        .card h3 {
-            margin: 0 0 8px 0;
-            color: #cbd5e1;
-        }
-        .card p {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #38bdf8;
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <h1>Athena Agent Dashboard</h1>
-        <div class="subtitle">Multi-Agent Workspace Hub & Analytics</div>
-        <div class="grid">
-            <div class="card">
-                <h3>Workspace Status</h3>
-                <p>ONLINE</p>
-            </div>
-            <div class="card">
-                <h3>Inference Profile</h3>
-                <p>Default</p>
-            </div>
-            <div class="card">
-                <h3>Port</h3>
-                <p>8000</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>"#;
+    if let Err(e) = axum::serve(listener, app).await {
+        println!("Server error: {}", e);
+    }
+}
 
-    for stream in listener.incoming() {
-        if let Ok(mut stream) = stream {
-            let mut buffer = [0; 1024];
-            let _ = stream.read(&mut buffer);
+async fn get_config() -> Json<AthenaConfig> {
+    let config = load_config();
+    Json(config)
+}
 
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                html_content.len(),
-                html_content
-            );
-            let _ = stream.write_all(response.as_bytes());
-            let _ = stream.flush();
+async fn update_config(Json(config): Json<AthenaConfig>) -> Json<bool> {
+    let res = save_config(&config);
+    Json(res.is_ok())
+}
+
+async fn get_skills() -> Json<Vec<SkillInfo>> {
+    let mut skills = Vec::new();
+    let skills_dir = get_athena_home().join("skills");
+    if let Ok(entries) = std::fs::read_dir(skills_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    skills.push(SkillInfo {
+                        name: name.to_string(),
+                        path: path.to_string_lossy().into_owned(),
+                    });
+                }
+            }
+        }
+    }
+    Json(skills)
+}
+
+async fn get_mcp() -> Json<crate::commands::mcp::McpServersList> {
+    let mcp_file = get_athena_home().join("mcp_servers.json");
+    let data = crate::commands::mcp::get_mcp_servers(&mcp_file);
+    Json(data)
+}
+
+async fn update_mcp(Json(mcp_list): Json<crate::commands::mcp::McpServersList>) -> Json<bool> {
+    let mcp_file = get_athena_home().join("mcp_servers.json");
+    let res = crate::commands::mcp::save_mcp_servers(&mcp_file, &mcp_list);
+    Json(res.is_ok())
+}
+
+async fn add_skill(Json(req): Json<CreateSkillReq>) -> Json<bool> {
+    let name = req.name.trim();
+    if name.is_empty() { return Json(false); }
+    let skills_dir = get_athena_home().join("skills");
+    let _ = std::fs::create_dir_all(&skills_dir);
+    let skill_path = skills_dir.join(format!("{}.rs", name));
+    let template = format!(
+        "// Skill: {}\n// Description: A new custom semantic skill definition\n\npub fn execute() {{\n    println!(\"Executing {} skill...\");\n}}\n",
+        name, name
+    );
+    Json(std::fs::write(&skill_path, template).is_ok())
+}
+
+async fn remove_skill(Path(name): Path<String>) -> Json<bool> {
+    let skills_dir = get_athena_home().join("skills");
+    let skill_path = skills_dir.join(name);
+    Json(std::fs::remove_file(&skill_path).is_ok())
+}
+
+async fn get_plugins() -> Json<Vec<SkillInfo>> {
+    let mut plugins = Vec::new();
+    let plugins_dir = get_athena_home().join("plugins");
+    if let Ok(entries) = std::fs::read_dir(plugins_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    plugins.push(SkillInfo {
+                        name: name.to_string(),
+                        path: path.to_string_lossy().into_owned(),
+                    });
+                }
+            }
+        }
+    }
+    Json(plugins)
+}
+
+async fn add_plugin(Json(req): Json<CreatePluginReq>) -> Json<bool> {
+    let name = req.name.trim();
+    if name.is_empty() { return Json(false); }
+    let plugins_dir = get_athena_home().join("plugins");
+    let _ = std::fs::create_dir_all(&plugins_dir);
+    let plugin_path = plugins_dir.join(format!("{}.wasm", name));
+    let wasm_skeleton = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+    Json(std::fs::write(&plugin_path, wasm_skeleton).is_ok())
+}
+
+async fn remove_plugin(Path(name): Path<String>) -> Json<bool> {
+    let plugins_dir = get_athena_home().join("plugins");
+    let plugin_path = plugins_dir.join(name);
+    Json(std::fs::remove_file(&plugin_path).is_ok())
+}
+
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> axum::response::Response {
+    ws.on_upgrade(|socket| handle_socket(socket, state))
+}
+
+async fn handle_socket(mut socket: WebSocket, state: AppState) {
+    while let Some(Ok(msg)) = socket.recv().await {
+        if let axum::extract::ws::Message::Text(text) = msg {
+            // Dynamically load config per request to pick up user changes
+            let config = load_config();
+            let provider_slug = config.model.provider.clone();
+            let model_name = config.model.default.clone();
+            
+            // Get API key for active provider
+            let mut api_key = None;
+            if let Some(p_cfg) = config.providers.get(&provider_slug) {
+                api_key = p_cfg.api_key.clone();
+            }
+
+            let mut agent_builder = AIAgent::builder()
+                .model(&model_name)
+                .max_iterations(config.agent.max_iterations as usize);
+                
+            if let Some(key) = api_key {
+                agent_builder = agent_builder.api_key(&key);
+            }
+
+            let mut locked_agent = agent_builder.build();
+            let dynamic_provider = athena_providers::registry::get_provider(&provider_slug).unwrap_or(state.provider.clone());
+
+            match locked_agent.run_conversation(&text, Some("You are a helpful dashboard assistant."), &state.registry, dynamic_provider).await {
+                Ok(response) => {
+                    let _ = socket.send(axum::extract::ws::Message::Text(response)).await;
+                }
+                Err(e) => {
+                    let _ = socket.send(axum::extract::ws::Message::Text(format!("Error: {}", e))).await;
+                }
+            }
         }
     }
 }
