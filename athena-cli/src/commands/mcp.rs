@@ -74,7 +74,7 @@ pub fn run_mcp() {
     println!();
 
     let mcp_file = get_athena_home().join("mcp_servers.json");
-    let mut data = get_mcp_servers(&mcp_file);
+    let data = get_mcp_servers(&mcp_file);
 
     println!("Options:");
     println!("  1. List configured MCP servers");
@@ -293,7 +293,7 @@ mod tests {
         // Test error conditions
         assert!(toggle_mcp_server(&file_path, 0).is_err());
         assert!(remove_mcp_server(&file_path, 0).is_err());
-        
+
         let empty_info = McpServerInfo {
             name: "".to_string(),
             command: "".to_string(),
