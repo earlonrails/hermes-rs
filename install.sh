@@ -50,6 +50,9 @@ fi
 echo -e "${GREEN}Compiling Athena (this may take a few minutes)...${NC}"
 cargo install --path athena-cli --locked
 
+echo -e "${GREEN}Compiling Athena Gateway...${NC}"
+cargo install --path athena-gateway --locked
+
 # 4. Final instructions
 echo ""
 echo -e "${GREEN}=======================================${NC}"

@@ -207,12 +207,17 @@ fn run_foreground_gateway() {
         "athena-gateway" 
     };
 
-    let mut child = Command::new(cmd)
+    let mut child = match Command::new(cmd)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()
-        .unwrap_or_else(|e| panic!("Failed to start athena-gateway (tried {}): {}", cmd, e));
+        .spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                outro_cancel(format!("Failed to start athena-gateway (tried '{}'). Error: {}. Is the gateway binary installed or in your PATH?", cmd, e)).ok();
+                return;
+            }
+        };
         
     let _ = child.wait();
     outro("Gateway stopped.").ok();

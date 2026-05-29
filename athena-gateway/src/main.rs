@@ -83,7 +83,14 @@ async fn main() {
 
     info!("Starting Athena Telegram Gateway...");
 
-    let bot = Bot::from_env();
+    let token = std::env::var("TELEGRAM_BOT_TOKEN")
+        .or_else(|_| std::env::var("TELOXIDE_TOKEN"))
+        .unwrap_or_else(|_| {
+            error!("TELEGRAM_BOT_TOKEN environment variable is not set. The gateway requires a Telegram bot token.");
+            std::process::exit(1);
+        });
+
+    let bot = Bot::new(token);
     let registry = ToolRegistry::new();
 
     let agent_builder = AIAgent::builder()
